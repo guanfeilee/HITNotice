@@ -8,6 +8,12 @@ const DEFAULT_ITEMS_PER_SOURCE = 5;
 const TODAY_HIT_ITEMS_PER_SOURCE = 20;
 const MAX_TOTAL_UPDATES = 200;
 const TODAY_HIT_FETCH_URL = "https://today.hit.edu.cn/category/10";
+const SIMULATED_FAILED_SOURCE_IDS = new Set(
+  (process.env.HITNOTICE_SIMULATE_FAILED_SOURCE_IDS ?? "")
+    .split(",")
+    .map((sourceId) => sourceId.trim())
+    .filter(Boolean)
+);
 const DEFAULT_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -179,6 +185,100 @@ function dedupeByUrlOrTitle(items) {
     seen.add(titleKey);
     return true;
   });
+}
+
+function getItemsLimitForSourceId(sourceId, sources) {
+  const source = sources.find((item) => item.id === sourceId);
+  return source ? getItemsLimitForSource(source) : DEFAULT_ITEMS_PER_SOURCE;
+}
+
+function getSortTime(update) {
+  const timestamp = dateScore(update);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function normalizeCachedUpdate(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const update = {
+    id: typeof value.id === "string" ? value.id : "",
+    sourceId: typeof value.sourceId === "string" ? value.sourceId : "",
+    sourceName: typeof value.sourceName === "string" ? value.sourceName : "",
+    title: typeof value.title === "string" ? value.title : "",
+    url: typeof value.url === "string" ? value.url : "",
+    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : "",
+    fetchedAt: typeof value.fetchedAt === "string" ? value.fetchedAt : ""
+  };
+
+  if (!update.id || !update.sourceId || !update.sourceName || !update.title || !update.url || !update.fetchedAt) {
+    return null;
+  }
+
+  return update;
+}
+
+async function readExistingUpdates() {
+  try {
+    const raw = await readFile(OUTPUT_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map(normalizeCachedUpdate).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function groupUpdatesBySourceId(updates) {
+  const grouped = new Map();
+  for (const update of updates) {
+    if (!update.sourceId) {
+      continue;
+    }
+    if (!grouped.has(update.sourceId)) {
+      grouped.set(update.sourceId, []);
+    }
+    grouped.get(update.sourceId).push(update);
+  }
+  return grouped;
+}
+
+function mergeWithExistingUpdates({ existingUpdates, fetchedUpdates, successfulSourceIds, enabledSources }) {
+  const fetchedBySource = groupUpdatesBySourceId(fetchedUpdates);
+  const existingBySource = groupUpdatesBySourceId(existingUpdates);
+  const merged = [];
+  const preservedCounts = new Map();
+
+  for (const source of enabledSources) {
+    const sourceId = source.id;
+    const limit = getItemsLimitForSourceId(sourceId, enabledSources);
+    const sourceItems = successfulSourceIds.has(sourceId)
+      ? fetchedBySource.get(sourceId) ?? []
+      : existingBySource.get(sourceId) ?? [];
+
+    const cleaned = dedupeByUrlOrTitle(sourceItems)
+      .sort((a, b) => getSortTime(b) - getSortTime(a))
+      .slice(0, limit);
+
+    if (!successfulSourceIds.has(sourceId) && cleaned.length > 0) {
+      preservedCounts.set(sourceId, {
+        sourceName: cleaned[0].sourceName || source.name,
+        count: cleaned.length
+      });
+    }
+
+    merged.push(...cleaned);
+  }
+
+  return {
+    updates: dedupeByUrlOrTitle(merged)
+      .sort((a, b) => getSortTime(b) - getSortTime(a))
+      .slice(0, MAX_TOTAL_UPDATES),
+    preservedCounts
+  };
 }
 
 function extractDate(text) {
@@ -428,6 +528,10 @@ async function fetchTodayHitUpdates(source, fetchedAt) {
 }
 
 async function fetchSource(source, fetchedAt) {
+  if (SIMULATED_FAILED_SOURCE_IDS.has(source.id)) {
+    throw new Error("simulated fetch failure");
+  }
+
   if (isTodayHit(source)) {
     return fetchTodayHitUpdates(source, fetchedAt);
   }
@@ -452,34 +556,58 @@ async function main() {
   const fetchedAt = formatFetchedAt();
   const sourceText = await readFile(SOURCES_PATH, "utf-8");
   const sources = readSourcesFromTs(sourceText);
+  const existingUpdates = await readExistingUpdates();
   const results = [];
   const failures = [];
+  const successfulSourceIds = new Set();
+  const failedSourceIds = new Set();
 
   for (const source of sources) {
     try {
       const { parsedCount, updates } = await fetchSource(source, fetchedAt);
       results.push(...updates);
+      successfulSourceIds.add(source.id);
       console.log(`[OK] ${source.name}: 解析到 ${parsedCount} 条，写入 ${updates.length} 条`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failures.push({ sourceId: source.id, sourceName: source.name, url: source.url, error: message });
+      failedSourceIds.add(source.id);
       console.warn(`[WARN] ${source.name}: ${message}`);
     }
   }
 
-  const updates = dedupeByUrlOrTitle(results)
-    .sort((a, b) => dateScore(b) - dateScore(a))
-    .slice(0, MAX_TOTAL_UPDATES);
+  const { updates, preservedCounts } = mergeWithExistingUpdates({
+    existingUpdates,
+    fetchedUpdates: results,
+    successfulSourceIds,
+    enabledSources: sources
+  });
+
+  if (existingUpdates.length >= 100 && updates.length < existingUpdates.length * 0.7) {
+    throw new Error(
+      `Refusing to write suspiciously small update cache: existing=${existingUpdates.length}, merged=${updates.length}`
+    );
+  }
 
   await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
   await writeFile(OUTPUT_PATH, `${JSON.stringify(updates, null, 2)}\n`, "utf-8");
 
   console.log(`Saved ${updates.length} updates to ${OUTPUT_PATH}`);
-  console.log(`Succeeded sources: ${sources.length - failures.length}/${sources.length}`);
+  console.log(`Fetched sources: ${successfulSourceIds.size}/${sources.length}`);
+  console.log(`Failed or empty sources: ${failedSourceIds.size}/${sources.length}`);
+  console.log(`Existing cache preserved for failed sources: ${preservedCounts.size}`);
+  console.log(`Final merged updates: ${updates.length}`);
+  console.log(`Succeeded sources: ${successfulSourceIds.size}/${sources.length}`);
   if (failures.length > 0) {
     console.log("Failed sources:");
     for (const failure of failures) {
       console.log(`- ${failure.sourceName}: ${failure.error}`);
+    }
+  }
+  if (preservedCounts.size > 0) {
+    console.log("Preserved cached updates:");
+    for (const preserved of preservedCounts.values()) {
+      console.log(`- ${preserved.sourceName}: ${preserved.count}`);
     }
   }
 }
