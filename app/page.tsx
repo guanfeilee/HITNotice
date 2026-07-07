@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeNoticeFeed } from "@/components/HomeNoticeFeed";
 import "./home.css";
 
 const features = [
@@ -34,6 +35,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <div className="container">
+        <HomeNoticeFeed />
+      </div>
     </div>
   );
 }

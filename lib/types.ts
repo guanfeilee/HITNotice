@@ -1,3 +1,5 @@
+export type { Notice, NoticeFetchResult, NoticeSourceGroup } from "@/types/notice";
+
 export type SourceGroup = "public" | "academic";
 export type SourceCategory = "public" | "school";
 export type SourceStatus = "pending" | "active";
@@ -12,16 +14,6 @@ export type Source = {
   url: string;
   enabled: boolean;
   parserType: SourceParserType;
-};
-
-export type Notice = {
-  id: string;
-  sourceId: string;
-  sourceName: string;
-  title: string;
-  url: string;
-  publishedAt?: string;
-  firstSeenAt: string;
 };
 
 export type Frequency = "high_frequency" | "daily_digest" | "weekly_digest";
