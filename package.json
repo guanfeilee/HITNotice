@@ -1,0 +1,26 @@
+{
+  "name": "hitnotice",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "eslint .",
+    "test:fetch-sources": "node scripts/test-fetch-sources.mjs",
+    "fetch:updates": "node scripts/fetch-latest-updates.mjs"
+  },
+  "dependencies": {
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/node": "^20.19.4",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.30.1",
+    "eslint-config-next": "^16.2.10",
+    "typescript": "^5.8.3"
+  }
+}

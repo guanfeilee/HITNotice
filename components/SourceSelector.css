@@ -1,0 +1,51 @@
+.source-selector {
+  display: grid;
+  gap: 16px;
+}
+
+.source-group h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.source-list {
+  display: grid;
+  gap: 8px;
+}
+
+.source-chip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+}
+
+.source-chip.checked {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.source-chip input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+@media (min-width: 640px) {
+  .source-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 980px) {
+  .source-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

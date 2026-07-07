@@ -1,0 +1,26 @@
+.subscribe-layout {
+  display: grid;
+  max-width: 980px;
+}
+
+.subscribe-form {
+  display: grid;
+  gap: 22px;
+  padding: 16px;
+}
+
+.subscribe-form > .button {
+  width: 100%;
+}
+
+.schedule-note {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (min-width: 980px) {
+  .subscribe-form {
+    padding: 22px;
+  }
+}

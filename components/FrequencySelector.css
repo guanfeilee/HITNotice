@@ -1,0 +1,41 @@
+.frequency-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.frequency-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.frequency-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.frequency-option input {
+  grid-row: span 2;
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.frequency-label {
+  font-weight: 800;
+}
+
+.frequency-description {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (min-width: 760px) {
+  .frequency-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

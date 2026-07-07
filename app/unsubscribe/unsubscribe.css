@@ -1,0 +1,10 @@
+.unsubscribe-form {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  padding: 18px;
+}
+
+.unsubscribe-form .button {
+  width: 100%;
+}

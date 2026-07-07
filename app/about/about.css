@@ -1,0 +1,41 @@
+.about-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.about-card {
+  padding: 18px;
+}
+
+.about-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.12rem;
+}
+
+.about-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.about-card p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.contact-link {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.contact-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 860px) {
+  .about-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
