@@ -9,15 +9,16 @@ import type { SubscriptionDraft } from "@/lib/types";
 const initialDraft: SubscriptionDraft = {
   email: "",
   sourceIds: [],
-  frequency: ""
+  frequency: "daily_digest"
 };
 
 export function SubscribeForm() {
   const [draft, setDraft] = useState<SubscriptionDraft>(initialDraft);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaved(false);
 
@@ -42,7 +43,34 @@ export function SubscribeForm() {
     }
 
     setError("");
-    setSaved(true);
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: draft.email,
+          frequency: draft.frequency,
+          sourceIds: draft.sourceIds
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        setError(result.error ?? "订阅保存失败，请稍后再试。");
+        return;
+      }
+
+      setSaved(true);
+    } catch {
+      setError("网络请求失败，请稍后再试。");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -79,12 +107,16 @@ export function SubscribeForm() {
       {error ? <div className="notice" role="alert">{error}</div> : null}
       {saved ? (
         <div className="success" role="status">
-          订阅设置已保存。后续接入后，你将按所选频率收到邮件摘要。
+          订阅已保存。邮件推送功能将在后续启用。
         </div>
       ) : null}
 
-      <button className="button primary" type="submit">
-        保存订阅设置
+      <p className="privacy-note">
+        仅保存邮箱、所选信息渠道和推送频率；不收集姓名、学号、手机号或统一身份认证信息。
+      </p>
+
+      <button className="button primary" type="submit" disabled={loading}>
+        {loading ? "保存中..." : "保存订阅设置"}
       </button>
     </form>
   );

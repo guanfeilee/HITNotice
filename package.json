@@ -10,6 +10,7 @@
     "fetch:updates": "node scripts/fetch-latest-updates.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
