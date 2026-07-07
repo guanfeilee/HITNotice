@@ -28,10 +28,15 @@ export type CrawledNotice = {
 
 export type SourceCrawlResult = {
   source: CrawlSource;
-  ok: boolean;
-  found: number;
+  fetchStatus: "success" | "failed";
+  parseStatus: "success" | "failed";
+  writeStatus: "success" | "failed" | "skipped";
+  parsed: number;
   insertedOrUpdated: number;
-  error?: string;
+  notices: CrawledNotice[];
+  fetchError?: string;
+  parseError?: string;
+  writeError?: string;
 };
 
 export type UpsertResult = {

@@ -2,7 +2,7 @@ import iconv from "iconv-lite";
 import type { CrawlSource } from "@/lib/crawler/types";
 
 const requestHeaders = {
-  "User-Agent": "HITnoticeBot/0.1 (+https://hitnotice.cn)",
+  "User-Agent": "Mozilla/5.0 compatible HITnoticeBot/0.1",
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
 };
@@ -27,8 +27,16 @@ function detectCharset(contentType: string | null, bytes: Buffer) {
 }
 
 export async function fetchSourceHtml(source: CrawlSource, timeoutMs = 15000) {
+  const headers =
+    source.id === "today-hit"
+      ? {
+          ...requestHeaders,
+          Referer: "https://today.hit.edu.cn/"
+        }
+      : requestHeaders;
+
   const response = await fetch(source.url, {
-    headers: requestHeaders,
+    headers,
     redirect: "follow",
     signal: AbortSignal.timeout(timeoutMs)
   });

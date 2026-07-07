@@ -29,6 +29,10 @@ const skipTitlePatterns = [
 ];
 
 function normalizeDateParts(year: number, month: number, day: number) {
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
   return [
     String(year).padStart(4, "0"),
     String(month).padStart(2, "0"),
@@ -79,6 +83,7 @@ function isLikelyArticleUrl(url: string, source: CrawlSource) {
     /\/article\/20[0-3]\d\//i.test(parsed.pathname) ||
     /\/20[0-3]\d\//.test(parsed.pathname) ||
     /\/info\/\d+\/\d+\.(htm|html)$/i.test(parsed.pathname) ||
+    /\/(?:detail|content|article)\/[^/]+/i.test(parsed.pathname) ||
     /\/c\d+a\d+\/page\.htm$/i.test(parsed.pathname) ||
     /\d+\.(htm|html)$/i.test(parsed.pathname)
   );
@@ -145,7 +150,7 @@ export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl 
   });
 
   const seen = new Set<string>();
-  return candidates
+  const parsed = candidates
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .filter((notice) => {
       const key = notice.url;
@@ -155,4 +160,59 @@ export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl 
     })
     .slice(0, maxItemsPerSource)
     .map(({ title, url, published_at }) => ({ title, url, published_at }));
+
+  if (parsed.length > 0 || source.id !== "life") {
+    return parsed;
+  }
+
+  return parseLifeScienceNotices($, source, pageUrl);
+}
+
+function parseLifeScienceNotices($: cheerio.CheerioAPI, source: CrawlSource, pageUrl: string) {
+  const seen = new Set<string>();
+  const notices: ParsedNotice[] = [];
+
+  $("a[href]").each((_, element) => {
+    const href = $(element).attr("href");
+    if (!isUsableHref(href)) return;
+
+    const url = normalizeUrl(href ?? "", pageUrl);
+    if (!url || !/\/20[0-3]\d\/\d{4}\/c\d+a\d+\/page\.htm$/i.test(new URL(url).pathname)) return;
+    if (!url || seen.has(url)) return;
+
+    const context = getContextText($, element);
+    const title = cleanLifeScienceTitle(context);
+    if (!isLikelyTitle(title)) return;
+
+    notices.push({
+      title,
+      url,
+      published_at: extractLifeScienceDate(context) ?? extractDate(context)
+    });
+    seen.add(url);
+  });
+
+  return notices.slice(0, maxItemsPerSource);
+}
+
+function extractLifeScienceDate(text: string) {
+  const match = text.replace(/\s+/g, " ").match(/(?<!\d)(\d{1,2})\s*(20\d{2})-(\d{1,2})(?!\d)/);
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+
+  return normalizeDateParts(Number(match[2]), Number(match[3]), Number(match[1]));
+}
+
+function cleanLifeScienceTitle(text: string) {
+  const normalized = text
+    .replace(/\s+/g, " ")
+    .replace(/^\d{1,2}\s*20\d{2}-\d{1,2}\s*/, "")
+    .replace(/\s*详情\s*$/, "")
+    .trim();
+
+  const noticeMatch = normalized.match(/^(.{8,90}?(?:通知|公示|公告|名单|活动|院庆))/);
+  if (noticeMatch?.[1]) {
+    return cleanTitle(noticeMatch[1]);
+  }
+
+  return cleanTitle(normalized.slice(0, 90));
 }
