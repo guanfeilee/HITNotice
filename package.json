@@ -7,10 +7,13 @@
     "build": "next build",
     "lint": "eslint .",
     "test:fetch-sources": "node scripts/test-fetch-sources.mjs",
-    "fetch:updates": "node scripts/fetch-latest-updates.mjs"
+    "fetch:updates": "node scripts/fetch-latest-updates.mjs",
+    "crawl:notices": "tsx scripts/crawl-notices.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "cheerio": "^1.2.0",
+    "iconv-lite": "^0.7.3",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -22,6 +25,7 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.30.1",
     "eslint-config-next": "^16.2.10",
+    "tsx": "^4.23.0",
     "typescript": "^5.8.3"
   }
 }
