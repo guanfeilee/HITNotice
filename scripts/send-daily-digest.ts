@@ -16,6 +16,18 @@ type DigestRunStats = {
   skipped: number;
 };
 
+type DigestDryRunStats = {
+  users: number;
+  recipients: number;
+  notices: number;
+  groups: number;
+  failed: number;
+};
+
+function isDryRun() {
+  return process.argv.includes("--dry-run");
+}
+
 function sanitizeError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
@@ -28,8 +40,47 @@ function logStats(stats: DigestRunStats) {
   );
 }
 
+function logDryRunStats(stats: DigestDryRunStats) {
+  console.log(
+    `Digest dry-run summary: users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, groups=${stats.groups}, failed=${stats.failed}`
+  );
+}
+
+async function runDryRun() {
+  const window = getDefaultDailyDigestWindow();
+  const subscriptions = await getActiveDailyDigestSubscriptions();
+  const stats: DigestDryRunStats = {
+    users: subscriptions.length,
+    recipients: subscriptions.length,
+    notices: 0,
+    groups: 0,
+    failed: 0
+  };
+
+  for (const subscription of subscriptions) {
+    try {
+      const digest = await buildDailyDigest(subscription.id, window);
+      stats.notices += digest.total;
+      stats.groups += digest.groups.length;
+    } catch {
+      stats.failed += 1;
+    }
+  }
+
+  logDryRunStats(stats);
+
+  if (stats.failed > 0) {
+    process.exitCode = 1;
+  }
+}
+
 async function main() {
   loadEnvConfig(process.cwd());
+
+  if (isDryRun()) {
+    await runDryRun();
+    return;
+  }
 
   const window = getDefaultDailyDigestWindow();
   const subscriptions = await getActiveDailyDigestSubscriptions();
