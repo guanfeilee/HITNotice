@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { frequencyOptions } from "@/lib/frequencies";
 import { sources } from "@/lib/sources";
@@ -8,6 +9,7 @@ const allowedFrequencies = new Set<Frequency>(frequencyOptions.map((option) => o
 const enabledSourceIds = new Set(sources.filter((source) => source.enabled).map((source) => source.id));
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxSourceCount = 26;
+const tokenBytes = 32;
 
 type SubscribeRequestBody = {
   email?: unknown;
@@ -31,6 +33,10 @@ type ValidatedSubscribeBody =
 
 function errorResponse(error: string, status = 400) {
   return NextResponse.json({ ok: false, error }, { status });
+}
+
+function createUnsubscribeToken() {
+  return randomBytes(tokenBytes).toString("hex");
 }
 
 function validateBody(body: SubscribeRequestBody): ValidatedSubscribeBody {
@@ -107,11 +113,26 @@ export async function POST(request: Request) {
       },
       { onConflict: "email" }
     )
-    .select("id")
+    .select("id,unsubscribe_token")
     .single();
 
   if (subscriptionError || !subscription) {
     return errorResponse(subscriptionError?.message ?? "订阅信息保存失败。", 500);
+  }
+
+  if (!subscription.unsubscribe_token) {
+    const { error: tokenError } = await supabase
+      .from("subscriptions")
+      .update({
+        unsubscribe_token: createUnsubscribeToken(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", subscription.id)
+      .is("unsubscribe_token", null);
+
+    if (tokenError) {
+      return errorResponse(tokenError.message, 500);
+    }
   }
 
   const { error: deleteError } = await supabase

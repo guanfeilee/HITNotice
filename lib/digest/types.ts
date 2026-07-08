@@ -4,6 +4,7 @@ export type DigestSubscription = {
   id: string;
   email: string;
   frequency: DigestType;
+  unsubscribeToken: string;
 };
 
 export type DigestSource = {

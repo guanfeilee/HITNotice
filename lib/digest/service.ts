@@ -86,7 +86,7 @@ function groupNotices(notices: DigestNotice[], subscribedSources: DigestSource[]
 export async function getActiveDailyDigestSubscriptions(): Promise<DigestSubscription[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("subscriptions")
-    .select("id,email,frequency")
+    .select("id,email,frequency,unsubscribe_token")
     .eq("status", "active")
     .eq("frequency", "daily_digest")
     .order("created_at", { ascending: true });
@@ -98,7 +98,8 @@ export async function getActiveDailyDigestSubscriptions(): Promise<DigestSubscri
   return (data ?? []).map((row) => ({
     id: String(row.id),
     email: String(row.email),
-    frequency: "daily_digest"
+    frequency: "daily_digest",
+    unsubscribeToken: String(row.unsubscribe_token ?? "")
   }));
 }
 

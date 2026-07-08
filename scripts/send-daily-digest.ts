@@ -117,7 +117,8 @@ async function main() {
       stats.notices += digest.total;
       await sendDailyDigestEmail({
         to: subscription.email,
-        digest
+        digest,
+        unsubscribeToken: subscription.unsubscribeToken
       });
       await recordDigestDelivery({
         subscriptionId: subscription.id,

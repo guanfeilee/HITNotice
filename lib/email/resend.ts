@@ -27,6 +27,7 @@ function formatResendError(response: Response, body: ResendErrorBody | null) {
 export async function sendDailyDigestEmail(params: {
   to: string;
   digest: DailyDigest;
+  unsubscribeToken: string;
 }) {
   const env = getEmailEnv();
   if (!env.ok) {
@@ -43,7 +44,7 @@ export async function sendDailyDigestEmail(params: {
       from: env.emailFrom,
       to: [params.to],
       subject: `HITnotice 每日通知摘要｜${params.digest.date}｜${params.digest.total} 条新增`,
-      html: renderDailyDigestEmail(params.digest, env.siteUrl)
+      html: renderDailyDigestEmail(params.digest, env.siteUrl, params.unsubscribeToken)
     })
   });
 

@@ -5,6 +5,12 @@
   padding: 18px;
 }
 
+.unsubscribe-copy {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .unsubscribe-form .button {
   width: 100%;
 }

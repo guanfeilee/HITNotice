@@ -3,35 +3,59 @@
 import { FormEvent, useState } from "react";
 import "./unsubscribe.css";
 
-export function UnsubscribeForm() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+type UnsubscribeFormProps = {
+  token: string;
+};
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+type SubmitStatus = "idle" | "submitting" | "success" | "error";
+
+export function UnsubscribeForm({ token }: UnsubscribeFormProps) {
+  const [status, setStatus] = useState<SubmitStatus>("idle");
+  const [message, setMessage] = useState(token ? "" : "无效的取消订阅链接。");
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim() || !email.includes("@")) {
-      setMessage("请输入有效的邮箱地址。");
+    if (!token) {
+      setStatus("error");
+      setMessage("无效的取消订阅链接。");
       return;
     }
-    setMessage("退订请求已模拟提交。正式版本会停止向该邮箱发送摘要。");
+
+    setStatus("submitting");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/unsubscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ token })
+      });
+      const result = (await response.json()) as { ok?: unknown; error?: unknown };
+
+      if (!response.ok || result.ok !== true) {
+        setStatus("error");
+        setMessage(typeof result.error === "string" ? result.error : "取消订阅失败，请稍后重试。");
+        return;
+      }
+
+      setStatus("success");
+      setMessage("已成功取消邮件摘要订阅。");
+    } catch {
+      setStatus("error");
+      setMessage("取消订阅失败，请稍后重试。");
+    }
   };
 
   return (
     <form className="unsubscribe-form card section" onSubmit={submit}>
-      <div className="field">
-        <label htmlFor="unsubscribe-email">邮箱</label>
-        <input
-          id="unsubscribe-email"
-          className="input"
-          type="email"
-          placeholder="name@example.com"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
-      {message ? <div className={message.startsWith("退订") ? "success" : "notice"}>{message}</div> : null}
-      <button className="button primary" type="submit">
-        退订
+      <p className="unsubscribe-copy">
+        {token ? "确认后，你将不再收到 HITnotice 邮件摘要。" : "邮件中的取消订阅链接缺少有效凭证。"}
+      </p>
+      {message ? <div className={status === "success" ? "success" : "notice"}>{message}</div> : null}
+      <button className="button primary" type="submit" disabled={!token || status === "submitting" || status === "success"}>
+        {status === "submitting" ? "正在取消..." : "确认取消订阅"}
       </button>
     </form>
   );

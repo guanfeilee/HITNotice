@@ -50,8 +50,8 @@ function renderGroups(digest: DailyDigest) {
     .join("");
 }
 
-export function renderDailyDigestEmail(digest: DailyDigest, siteUrl: string) {
-  const unsubscribeUrl = `${siteUrl}/unsubscribe`;
+export function renderDailyDigestEmail(digest: DailyDigest, siteUrl: string, unsubscribeToken: string) {
+  const unsubscribeUrl = `${siteUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const subscribedSourceNames = digest.sources.map((source) => source.name).join("、");
 
   return `<!doctype html>
