@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { frequencyOptions } from "@/lib/frequencies";
 import { sources } from "@/lib/sources";
+import { sendSubscriptionConfirmationEmail } from "@/lib/email/resend";
 import type { Frequency } from "@/lib/types";
 
 const allowedFrequencies = new Set<Frequency>(frequencyOptions.map((option) => option.value));
@@ -10,6 +11,7 @@ const enabledSourceIds = new Set(sources.filter((source) => source.enabled).map(
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxSourceCount = 26;
 const tokenBytes = 32;
+const sourceNameById = new Map(sources.map((source) => [source.id, source.name]));
 
 type SubscribeRequestBody = {
   email?: unknown;
@@ -37,6 +39,10 @@ function errorResponse(error: string, status = 400) {
 
 function createUnsubscribeToken() {
   return randomBytes(tokenBytes).toString("hex");
+}
+
+function getSourceNames(sourceIds: string[]) {
+  return sourceIds.map((sourceId) => sourceNameById.get(sourceId) ?? sourceId);
 }
 
 function validateBody(body: SubscribeRequestBody): ValidatedSubscribeBody {
@@ -101,6 +107,18 @@ export async function POST(request: Request) {
   }
 
   const { email, frequency, sourceIds } = validated.data;
+  const { data: existingSubscription, error: existingSubscriptionError } = await supabase
+    .from("subscriptions")
+    .select("id,unsubscribe_token")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (existingSubscriptionError) {
+    return errorResponse(existingSubscriptionError.message, 500);
+  }
+
+  const isFirstSubscription = !existingSubscription;
+  const unsubscribeToken = existingSubscription?.unsubscribe_token || createUnsubscribeToken();
 
   const { data: subscription, error: subscriptionError } = await supabase
     .from("subscriptions")
@@ -109,6 +127,7 @@ export async function POST(request: Request) {
         email,
         frequency,
         status: "active",
+        unsubscribe_token: unsubscribeToken,
         updated_at: new Date().toISOString()
       },
       { onConflict: "email" }
@@ -124,7 +143,7 @@ export async function POST(request: Request) {
     const { error: tokenError } = await supabase
       .from("subscriptions")
       .update({
-        unsubscribe_token: createUnsubscribeToken(),
+        unsubscribe_token: unsubscribeToken,
         updated_at: new Date().toISOString()
       })
       .eq("id", subscription.id)
@@ -153,6 +172,18 @@ export async function POST(request: Request) {
 
   if (sourceError) {
     return errorResponse(sourceError.message, 500);
+  }
+
+  if (isFirstSubscription) {
+    try {
+      await sendSubscriptionConfirmationEmail({
+        to: email,
+        sourceNames: getSourceNames(sourceIds),
+        unsubscribeToken
+      });
+    } catch {
+      console.log("Subscription confirmation email failed");
+    }
   }
 
   return NextResponse.json({ ok: true });
