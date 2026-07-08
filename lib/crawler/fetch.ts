@@ -17,6 +17,16 @@ const todayRequestHeaders = {
   Referer: "https://today.hit.edu.cn/"
 };
 
+export class SourceFetchError extends Error {
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "SourceFetchError";
+    this.status = status;
+  }
+}
+
 function normalizeCharset(value?: string | null) {
   const charset = value?.trim().toLowerCase();
   if (!charset) return "utf-8";
@@ -46,7 +56,7 @@ export async function fetchSourceHtml(source: CrawlSource, timeoutMs = 15000) {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    throw new SourceFetchError(`HTTP ${response.status} ${response.statusText}`, response.status);
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());

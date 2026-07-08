@@ -31,6 +31,7 @@ export type SourceCrawlResult = {
   fetchStatus: "success" | "failed";
   parseStatus: "success" | "failed";
   writeStatus: "success" | "failed" | "skipped";
+  httpStatus?: number;
   parsed: number;
   insertedOrUpdated: number;
   notices: CrawledNotice[];

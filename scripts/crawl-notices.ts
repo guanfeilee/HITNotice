@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
-import { fetchSourceHtml } from "@/lib/crawler/fetch";
+import { fetchSourceHtml, SourceFetchError } from "@/lib/crawler/fetch";
+import { recordCrawlRun } from "@/lib/crawler/health";
 import { parseNoticesFromHtml } from "@/lib/crawler/parse";
 import { crawlSources } from "@/lib/crawler/sources";
 import type { CrawlSource, SourceCrawlResult } from "@/lib/crawler/types";
@@ -42,6 +43,14 @@ function formatWriteError(message: string) {
 function formatCrawlError(source: CrawlSource, message: string) {
   const knownIssue = source.id === "today" && /HTTP 403/i.test(message) ? " (known issue)" : "";
   return `source=${source.id} name=${source.name}${knownIssue}: ${message}`;
+}
+
+function getHttpStatus(error: unknown) {
+  if (error instanceof SourceFetchError) return error.status;
+
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/HTTP\s+(\d{3})/i);
+  return match?.[1] ? Number(match[1]) : undefined;
 }
 
 function getSources(options: CliOptions) {
@@ -139,12 +148,28 @@ async function crawlSource(
       fetchStatus: "failed",
       parseStatus: "failed",
       writeStatus: "skipped",
+      httpStatus: getHttpStatus(error),
       parsed: 0,
       insertedOrUpdated: 0,
       notices: [],
       fetchError: formattedMessage,
       parseError: "skipped because fetch failed"
     } satisfies SourceCrawlResult;
+  }
+}
+
+async function recordHealthIfNeeded(result: SourceCrawlResult, startedAt: string, options: CliOptions) {
+  if (options.dryRun) return;
+
+  try {
+    await recordCrawlRun({
+      result,
+      startedAt,
+      finishedAt: formatNowIso()
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`Health record skipped: source=${result.source.id}, ${message}`);
   }
 }
 
@@ -193,7 +218,10 @@ async function main() {
   const results: SourceCrawlResult[] = [];
 
   for (const source of sources) {
-    results.push(await crawlSource(source, options, upsertNotices));
+    const startedAt = formatNowIso();
+    const result = await crawlSource(source, options, upsertNotices);
+    await recordHealthIfNeeded(result, startedAt, options);
+    results.push(result);
   }
 
   printSummary(results);

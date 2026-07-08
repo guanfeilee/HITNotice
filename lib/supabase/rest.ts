@@ -1,5 +1,6 @@
 import { getSupabaseAdminEnv, getSupabaseAnonEnv } from "@/lib/supabase/config";
 import type { CrawledNotice } from "@/lib/crawler/types";
+import type { CrawlRunInsertRow, CrawlRunRestRow } from "@/lib/crawler/health";
 
 export type NoticeRestRow = Record<string, unknown> & {
   id?: string;
@@ -172,6 +173,28 @@ export async function selectExistingNoticeUrls(urls: string[]) {
     query: {
       select: "url",
       url: toInFilter(urls)
+    }
+  });
+}
+
+export async function insertCrawlRunRow(row: CrawlRunInsertRow) {
+  await requestSupabaseRest<void>({
+    key: "service_role",
+    method: "POST",
+    path: "crawl_runs",
+    body: row,
+    prefer: "return=minimal"
+  });
+}
+
+export async function selectRecentCrawlRunRows(limit = 500) {
+  return requestSupabaseRest<CrawlRunRestRow[]>({
+    key: "service_role",
+    path: "crawl_runs",
+    query: {
+      select: "source_id,source_name,started_at,finished_at,status,http_status,found_count,new_count,error_message",
+      order: "started_at.desc",
+      limit: String(limit)
     }
   });
 }

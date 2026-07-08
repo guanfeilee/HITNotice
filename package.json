@@ -9,6 +9,7 @@
     "test:fetch-sources": "node scripts/test-fetch-sources.mjs",
     "fetch:updates": "node scripts/fetch-latest-updates.mjs",
     "crawl:notices": "tsx scripts/crawl-notices.ts",
+    "crawl:health": "tsx scripts/crawl-health.ts",
     "test:supabase": "tsx scripts/test-supabase-write.ts",
     "send:digest": "tsx scripts/send-daily-digest.ts"
   },
