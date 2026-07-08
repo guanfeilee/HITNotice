@@ -59,7 +59,7 @@ function readSourcesFromTs(sourceText) {
       const getString = (key) => objectText.match(new RegExp(`${key}:\\s*"([^"]*)"`))?.[1] ?? "";
       const enabled = objectText.match(/\benabled:\s*(true|false)/)?.[1] !== "false";
       const id = getString("id");
-      const parserType = getString("parserType") || (id === "hit-today" ? "today-hit" : "generic");
+      const parserType = getString("parserType") || (id === "today-hit" ? "today-hit" : "generic");
       const url = getString("url");
 
       return {
@@ -453,18 +453,8 @@ function parseUpdates(html, source, fetchedAt) {
 }
 
 function debugTodayHitResponse(response, html) {
-  const anchorMatches = Array.from(html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi));
-  const links = anchorMatches.slice(0, 20).map((match) => ({
-    text: cleanText(match[2]),
-    href: getHref(match[1])
-  }));
-
-  console.log("[debug today.hit] status:", response.status);
-  console.log("[debug today.hit] final url:", response.url);
-  console.log("[debug today.hit] content-type:", response.headers.get("content-type"));
-  console.log("[debug today.hit] html preview:", html.slice(0, 1000).replace(/\s+/g, " "));
-  console.log("[debug today.hit] a count:", anchorMatches.length);
-  console.log("[debug today.hit] links:", JSON.stringify(links, null, 2));
+  void response;
+  void html;
 }
 
 function parseTodayHitUpdates(html, source, fetchedAt, baseUrl) {

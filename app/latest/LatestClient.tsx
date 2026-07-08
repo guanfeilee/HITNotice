@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { sources } from "@/lib/sources";
-import type { LatestUpdate } from "@/lib/types";
+import type { Notice } from "@/types/notice";
 import "./latest.css";
 
 type LatestClientProps = {
-  updates: LatestUpdate[];
+  error?: string;
+  notices: Notice[];
 };
 
 function formatPublishedDate(value?: string) {
@@ -29,18 +30,18 @@ function formatPublishedDate(value?: string) {
   return trimmed;
 }
 
-export function LatestClient({ updates }: LatestClientProps) {
+export function LatestClient({ error, notices }: LatestClientProps) {
   const [sourceId, setSourceId] = useState("all");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return updates.filter((update) => {
-      const sourceMatches = sourceId === "all" || update.sourceId === sourceId;
-      const titleMatches = !normalizedQuery || update.title.toLowerCase().includes(normalizedQuery);
+    return notices.filter((notice) => {
+      const sourceMatches = sourceId === "all" || notice.sourceId === sourceId;
+      const titleMatches = !normalizedQuery || notice.title.toLowerCase().includes(normalizedQuery);
       return sourceMatches && titleMatches;
     });
-  }, [query, sourceId, updates]);
+  }, [notices, query, sourceId]);
 
   return (
     <section className="section latest-section">
@@ -73,17 +74,23 @@ export function LatestClient({ updates }: LatestClientProps) {
           />
         </div>
       </div>
-      {filtered.length > 0 ? (
+
+      {error ? (
+        <div className="updates-empty card" role="status">
+          <h2>通知加载失败</h2>
+          <p>请稍后重试。</p>
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="updates-grid">
-          {filtered.map((update) => {
-            const publishedDate = formatPublishedDate(update.publishedAt);
+          {filtered.map((notice) => {
+            const publishedDate = formatPublishedDate(notice.publishedAt ?? notice.firstSeenAt ?? notice.createdAt);
 
             return (
-              <article className="update-card card" key={update.id}>
-                <p className="update-source">{update.sourceName}</p>
+              <article className="update-card card" key={notice.id}>
+                <p className="update-source">{notice.sourceName}</p>
                 <h3>
-                  <a href={update.url} target="_blank" rel="noopener noreferrer">
-                    {update.title}
+                  <a href={notice.url} target="_blank" rel="noopener noreferrer">
+                    {notice.title}
                   </a>
                 </h3>
                 {publishedDate ? (

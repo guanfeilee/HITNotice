@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { frequencyOptions } from "@/lib/frequencies";
 import { sources } from "@/lib/sources";
 import type { Frequency } from "@/lib/types";
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     return errorResponse(validated.error);
   }
 
-  const { client: supabase, error: configError } = createSupabaseServerClient();
+  const { client: supabase, error: configError } = createSupabaseAdminClient();
   if (!supabase) {
     return errorResponse(configError, 500);
   }

@@ -1,5 +1,40 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.notices (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  url text not null,
+  source_id text not null,
+  source_name text not null,
+  category text not null,
+  published_at timestamptz,
+  first_seen_at timestamptz not null default now(),
+  hash text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint notices_title_not_blank check (length(trim(title)) > 0),
+  constraint notices_url_not_blank check (length(trim(url)) > 0),
+  constraint notices_source_id_not_blank check (length(trim(source_id)) > 0),
+  constraint notices_source_name_not_blank check (length(trim(source_name)) > 0),
+  constraint notices_category_not_blank check (length(trim(category)) > 0),
+  constraint notices_hash_not_blank check (length(trim(hash)) > 0)
+);
+
+create unique index if not exists notices_hash_key
+  on public.notices(hash);
+
+create index if not exists notices_source_id_idx
+  on public.notices(source_id);
+
+create index if not exists notices_published_at_idx
+  on public.notices(published_at desc);
+
+create index if not exists notices_category_idx
+  on public.notices(category);
+
+create index if not exists notices_first_seen_at_idx
+  on public.notices(first_seen_at desc);
+
 create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   email text not null,
@@ -41,5 +76,12 @@ drop trigger if exists subscriptions_set_updated_at on public.subscriptions;
 
 create trigger subscriptions_set_updated_at
 before update on public.subscriptions
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists notices_set_updated_at on public.notices;
+
+create trigger notices_set_updated_at
+before update on public.notices
 for each row
 execute function public.set_updated_at();

@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { CrawledNotice, UpsertResult } from "@/lib/crawler/types";
+import { insertNoticeRows, selectExistingNoticeUrls, upsertNoticeRowsByHash } from "@/lib/supabase/rest";
 
 const migrationHintPath = "supabase/migrations/optional_notice_crawler_fields.sql";
 
@@ -11,17 +11,14 @@ function isMissingColumn(message: string) {
   return /column .* does not exist|schema cache|Could not find .* column/i.test(message);
 }
 
-function toPayload(notice: CrawledNotice, includeHash = true) {
-  return {
-    title: notice.title,
-    url: notice.url,
-    source_name: notice.source_name,
-    source_id: notice.source_id,
-    category: notice.category,
-    published_at: notice.published_at,
-    first_seen_at: notice.first_seen_at,
-    ...(includeHash ? { hash: notice.hash } : {})
-  };
+function formatError(error: unknown) {
+  if (error instanceof Error) {
+    const cause = error.cause;
+    if (cause instanceof Error) return `${error.message}; cause: ${cause.message}`;
+    return error.message;
+  }
+
+  return String(error);
 }
 
 async function insertNewByUrl(notices: CrawledNotice[], includeHash: boolean): Promise<UpsertResult> {
@@ -32,18 +29,22 @@ async function insertNewByUrl(notices: CrawledNotice[], includeHash: boolean): P
   const urls = notices.map((notice) => notice.url);
   const existingByUrl = new Set<string>();
 
-  const existingResult = await supabaseAdmin.from("notices").select("url").in("url", urls);
-  if (existingResult.error) {
+  let existingRows: Array<{ url?: string }>;
+
+  try {
+    existingRows = await selectExistingNoticeUrls(urls);
+  } catch (error) {
+    const message = formatError(error);
     return {
       insertedOrUpdated: 0,
       skipped: 0,
       mode: "insert-new-by-url",
-      needsMigration: isMissingColumn(existingResult.error.message),
-      error: existingResult.error.message
+      needsMigration: isMissingColumn(message),
+      error: message
     };
   }
 
-  for (const row of existingResult.data ?? []) {
+  for (const row of existingRows) {
     if (typeof row.url === "string") existingByUrl.add(row.url);
   }
 
@@ -57,15 +58,17 @@ async function insertNewByUrl(notices: CrawledNotice[], includeHash: boolean): P
     };
   }
 
-  const insertResult = await supabaseAdmin.from("notices").insert(rowsToInsert.map((notice) => toPayload(notice, includeHash)));
-  if (insertResult.error) {
-    const needsMigration = isMissingColumn(insertResult.error.message);
+  try {
+    await insertNoticeRows(rowsToInsert, includeHash);
+  } catch (error) {
+    const message = formatError(error);
+    const needsMigration = isMissingColumn(message);
     return {
       insertedOrUpdated: 0,
       skipped: existingByUrl.size,
       mode: "insert-new-by-url",
       needsMigration,
-      error: needsMigration ? `${insertResult.error.message}. 可选迁移文件：${migrationHintPath}` : insertResult.error.message
+      error: needsMigration ? `${message}. 可选迁移文件：${migrationHintPath}` : message
     };
   }
 
@@ -82,32 +85,32 @@ export async function upsertNotices(notices: CrawledNotice[]): Promise<UpsertRes
     return { insertedOrUpdated: 0, skipped: 0, mode: "none", needsMigration: false };
   }
 
-  const payload = notices.map((notice) => toPayload(notice));
-  const result = await supabaseAdmin.from("notices").upsert(payload, { onConflict: "hash" });
-
-  if (!result.error) {
+  try {
+    await upsertNoticeRowsByHash(notices);
     return {
       insertedOrUpdated: notices.length,
       skipped: 0,
       mode: "upsert-hash",
       needsMigration: false
     };
-  }
+  } catch (error) {
+    const message = formatError(error);
 
-  if (isMissingHashConstraint(result.error.message)) {
-    return insertNewByUrl(notices, true);
-  }
+    if (isMissingHashConstraint(message)) {
+      return insertNewByUrl(notices, true);
+    }
 
-  if (/hash/i.test(result.error.message) && isMissingColumn(result.error.message)) {
-    return insertNewByUrl(notices, false);
-  }
+    if (/hash/i.test(message) && isMissingColumn(message)) {
+      return insertNewByUrl(notices, false);
+    }
 
-  const needsMigration = isMissingColumn(result.error.message);
-  return {
-    insertedOrUpdated: 0,
-    skipped: 0,
-    mode: "upsert-hash",
-    needsMigration,
-    error: needsMigration ? `${result.error.message}. 可选迁移文件：${migrationHintPath}` : result.error.message
-  };
+    const needsMigration = isMissingColumn(message);
+    return {
+      insertedOrUpdated: 0,
+      skipped: 0,
+      mode: "upsert-hash",
+      needsMigration,
+      error: needsMigration ? `${message}. 可选迁移文件：${migrationHintPath}` : message
+    };
+  }
 }

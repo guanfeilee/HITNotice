@@ -36,11 +36,12 @@ function requireEnv() {
 }
 
 function formatWriteError(message: string) {
-  if (/fetch failed|ECONNRESET|TLS|network/i.test(message)) {
-    return "Supabase ECONNRESET";
-  }
-
   return message;
+}
+
+function formatCrawlError(source: CrawlSource, message: string) {
+  const knownIssue = source.id === "today-hit" && /HTTP 403/i.test(message) ? " (known issue)" : "";
+  return `source=${source.id} name=${source.name}${knownIssue}: ${message}`;
 }
 
 function getSources(options: CliOptions) {
@@ -105,7 +106,7 @@ async function crawlSource(
     const upsertResult = await upsertNotices(normalized);
     if (upsertResult.error) {
       const writeError = formatWriteError(upsertResult.error);
-      console.log(`Write failed: ${writeError}`);
+      console.log(`Write failed at lib/crawler/upsert.ts: ${writeError}`);
       return {
         source,
         fetchStatus: "success",
@@ -131,7 +132,8 @@ async function crawlSource(
     } satisfies SourceCrawlResult;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`Fetch/parse failed: ${message}`);
+    const formattedMessage = formatCrawlError(source, message);
+    console.log(`Fetch/parse failed: ${formattedMessage}`);
     return {
       source,
       fetchStatus: "failed",
@@ -140,7 +142,7 @@ async function crawlSource(
       parsed: 0,
       insertedOrUpdated: 0,
       notices: [],
-      fetchError: message,
+      fetchError: formattedMessage,
       parseError: "skipped because fetch failed"
     } satisfies SourceCrawlResult;
   }

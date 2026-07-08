@@ -1,8 +1,8 @@
-import { createSupabaseAnonClient } from "@/lib/supabase/client";
 import { sources } from "@/lib/sources";
+import { selectNoticeRows, type NoticeRestRow } from "@/lib/supabase/rest";
 import type { Notice, NoticeFetchResult, NoticeSourceGroup } from "@/types/notice";
 
-type NoticeRow = Record<string, unknown> & {
+type NoticeRow = NoticeRestRow & {
   sources?: SourceRow | SourceRow[] | null;
   source?: SourceRow | SourceRow[] | null;
 };
@@ -88,36 +88,65 @@ function sortNotices(notices: Notice[]) {
   });
 }
 
-export async function fetchNotices(limit = 100): Promise<NoticeFetchResult> {
-  const { client: supabase, error: configError } = createSupabaseAnonClient();
+function isBrowser() {
+  return typeof window !== "undefined";
+}
 
-  if (!supabase) {
-    return { ok: false, notices: [], error: configError };
+function isNoticeFetchResult(value: unknown): value is NoticeFetchResult {
+  if (!value || typeof value !== "object") return false;
+
+  const result = value as { ok?: unknown; notices?: unknown; error?: unknown };
+  if (result.ok === true) return Array.isArray(result.notices);
+  if (result.ok === false) return Array.isArray(result.notices) && typeof result.error === "string";
+  return false;
+}
+
+export async function fetchNotices(limit = 100): Promise<NoticeFetchResult> {
+  if (isBrowser()) {
+    try {
+      const response = await fetch(`/api/notices?limit=${encodeURIComponent(String(limit))}`, {
+        headers: {
+          Accept: "application/json"
+        }
+      });
+      const result = (await response.json()) as unknown;
+
+      if (!response.ok || !isNoticeFetchResult(result)) {
+        return {
+          ok: false,
+          notices: [],
+          error: `Notice API failed with HTTP ${response.status}`
+        };
+      }
+
+      return result;
+    } catch (error) {
+      return {
+        ok: false,
+        notices: [],
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
   }
 
-  const withSource = await supabase.from("notices").select("*, sources(*)").limit(limit);
-  const result = withSource.error
-    ? await supabase.from("notices").select("*").limit(limit)
-    : withSource;
+  try {
+    const notices = sortNotices(
+      (await selectNoticeRows(limit))
+        .map((row) => normalizeNotice(row))
+        .filter((notice): notice is Notice => Boolean(notice))
+    );
 
-  if (result.error) {
+    return {
+      ok: true,
+      notices
+    };
+  } catch (error) {
     return {
       ok: false,
       notices: [],
-      error: result.error.message
+      error: error instanceof Error ? error.message : String(error)
     };
   }
-
-  const notices = sortNotices(
-    ((result.data ?? []) as NoticeRow[])
-      .map((row) => normalizeNotice(row))
-      .filter((notice): notice is Notice => Boolean(notice))
-  );
-
-  return {
-    ok: true,
-    notices
-  };
 }
 
 export function formatNoticeDate(notice: Notice) {
