@@ -7,6 +7,16 @@ const requestHeaders = {
   "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
 };
 
+const todayRequestHeaders = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+  Referer: "https://today.hit.edu.cn/"
+};
+
 function normalizeCharset(value?: string | null) {
   const charset = value?.trim().toLowerCase();
   if (!charset) return "utf-8";
@@ -27,13 +37,7 @@ function detectCharset(contentType: string | null, bytes: Buffer) {
 }
 
 export async function fetchSourceHtml(source: CrawlSource, timeoutMs = 15000) {
-  const headers =
-    source.id === "today"
-      ? {
-          ...requestHeaders,
-          Referer: "https://today.hit.edu.cn/"
-        }
-      : requestHeaders;
+  const headers = source.id === "today" ? todayRequestHeaders : requestHeaders;
 
   const response = await fetch(source.url, {
     headers,
