@@ -40,7 +40,7 @@ function formatWriteError(message: string) {
 }
 
 function formatCrawlError(source: CrawlSource, message: string) {
-  const knownIssue = source.id === "today-hit" && /HTTP 403/i.test(message) ? " (known issue)" : "";
+  const knownIssue = source.id === "today" && /HTTP 403/i.test(message) ? " (known issue)" : "";
   return `source=${source.id} name=${source.name}${knownIssue}: ${message}`;
 }
 

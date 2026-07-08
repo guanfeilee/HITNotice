@@ -6,67 +6,67 @@ const OUTPUT_PATH = path.join(process.cwd(), "data", "debug", "latest-news-sampl
 
 const FETCH_SOURCES = [
   {
-    id: "today-hit",
+    id: "today",
     name: "今日哈工大",
     url: "https://today.hit.edu.cn/category/10",
     parser: "today"
   },
   {
-    id: "hit-news",
+    id: "news",
     name: "哈工大新闻网",
     url: "https://news.hit.edu.cn/xxyw/list.htm",
     parser: "wp-news"
   },
   {
-    id: "hit-undergraduate",
+    id: "undergraduate",
     name: "本科生院",
     url: "https://hituc.hit.edu.cn/17860/list.htm",
     parser: "wp-card"
   },
   {
-    id: "hit-graduate-school",
+    id: "postgraduate",
     name: "研究生院",
     url: "https://hitgs.hit.edu.cn/tzgg/list.htm",
     parser: "wp-grad"
   },
   {
-    id: "sa",
+    id: "aerospace",
     name: "航天学院",
     url: "https://sa.hit.edu.cn/tzgg_6582/list.htm",
     parser: "academic"
   },
   {
-    id: "seie",
+    id: "electronic",
     name: "电子与信息工程学院",
     url: "https://seie.hit.edu.cn/xygg/list.htm",
     parser: "academic"
   },
   {
-    id: "sme",
+    id: "machine",
     name: "机电工程学院",
     url: "https://sme.hit.edu.cn/18013/list2.htm",
     parser: "academic"
   },
   {
-    id: "mse",
+    id: "material",
     name: "材料科学与工程学院",
     url: "https://mse.hit.edu.cn/16847/list.htm",
     parser: "academic"
   },
   {
-    id: "power",
+    id: "resource",
     name: "能源科学与工程学院",
     url: "https://power.hit.edu.cn/5714/list.htm",
     parser: "academic"
   },
   {
-    id: "hitee",
+    id: "electrical",
     name: "电气工程及自动化学院",
     url: "https://hitee.hit.edu.cn/17101/list.htm",
     parser: "academic"
   },
   {
-    id: "ise",
+    id: "instrument",
     name: "仪器科学与工程学院",
     url: "https://ise.hit.edu.cn/5304/list.htm",
     parser: "academic"
@@ -84,19 +84,19 @@ const FETCH_SOURCES = [
     parser: "academic"
   },
   {
-    id: "som",
+    id: "management",
     name: "经济与管理学院",
     url: "https://som.hit.edu.cn/index/tzgg1.htm",
     parser: "academic"
   },
   {
-    id: "hbs",
+    id: "finance",
     name: "商学院",
     url: "https://hbs.hit.edu.cn/xwzx/tzgg1.htm",
     parser: "academic"
   },
   {
-    id: "rwskxb",
+    id: "social",
     name: "人文社科学部",
     url: "https://rwskxb.hit.edu.cn/tzgg/list.htm",
     parser: "academic"
@@ -114,31 +114,31 @@ const FETCH_SOURCES = [
     parser: "academic"
   },
   {
-    id: "env",
+    id: "environment",
     name: "环境学院",
     url: "https://env.hit.edu.cn/8344/list.htm",
     parser: "academic"
   },
   {
-    id: "arch",
+    id: "architecture",
     name: "建筑与设计学院",
     url: "https://arch.hit.edu.cn/11953/list.htm",
     parser: "academic"
   },
   {
-    id: "jtxy",
+    id: "traffic",
     name: "交通科学与工程学院",
     url: "https://jtxy.hit.edu.cn/tzgg/list.htm",
     parser: "academic"
   },
   {
-    id: "computing",
+    id: "computer",
     name: "计算学部",
     url: "https://computing.hit.edu.cn/11271/list.htm",
     parser: "academic"
   },
   {
-    id: "chemeng",
+    id: "chem",
     name: "化学与化工学院",
     url: "https://chemeng.hit.edu.cn/tzgg/list.htm",
     parser: "academic"

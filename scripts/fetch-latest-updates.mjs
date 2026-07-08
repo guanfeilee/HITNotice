@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const SOURCES_PATH = path.join(process.cwd(), "lib", "sources.ts");
+const SOURCES_PATH = path.join(process.cwd(), "lib", "source-registry.ts");
 const OUTPUT_PATH = path.join(process.cwd(), "data", "latest-updates.json");
 const DEFAULT_ITEMS_PER_SOURCE = 5;
 const TODAY_HIT_ITEMS_PER_SOURCE = 20;
@@ -47,9 +47,9 @@ const SKIP_TITLE_PATTERNS = [
 ];
 
 function readSourcesFromTs(sourceText) {
-  const sourceArrayMatch = sourceText.match(/export const sources:\s*Source\[\]\s*=\s*\[([\s\S]*?)\];/);
+  const sourceArrayMatch = sourceText.match(/export const sourceRegistry\s*=\s*\[([\s\S]*?)\]\s*as const/s);
   if (!sourceArrayMatch?.[1]) {
-    throw new Error("无法读取 lib/sources.ts 中的 sources 配置");
+    throw new Error("无法读取 lib/source-registry.ts 中的 sourceRegistry 配置");
   }
 
   const objectRegex = /\{[\s\S]*?\}/g;
@@ -59,7 +59,7 @@ function readSourcesFromTs(sourceText) {
       const getString = (key) => objectText.match(new RegExp(`${key}:\\s*"([^"]*)"`))?.[1] ?? "";
       const enabled = objectText.match(/\benabled:\s*(true|false)/)?.[1] !== "false";
       const id = getString("id");
-      const parserType = getString("parserType") || (id === "today-hit" ? "today-hit" : "generic");
+      const parserType = getString("parserType") || (id === "today" ? "today-hit" : "generic");
       const url = getString("url");
 
       return {

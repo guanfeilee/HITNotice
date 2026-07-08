@@ -28,7 +28,7 @@ function detectCharset(contentType: string | null, bytes: Buffer) {
 
 export async function fetchSourceHtml(source: CrawlSource, timeoutMs = 15000) {
   const headers =
-    source.id === "today-hit"
+    source.id === "today"
       ? {
           ...requestHeaders,
           Referer: "https://today.hit.edu.cn/"
