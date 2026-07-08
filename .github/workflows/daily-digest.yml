@@ -2,9 +2,8 @@ name: Send daily digest
 
 on:
   schedule:
-    # Asia/Shanghai 12:00 and 20:00.
-    - cron: "0 4 * * *"
-    - cron: "0 12 * * *"
+    # Asia/Shanghai 20:00, Monday to Friday.
+    - cron: "0 12 * * 1-5"
   workflow_dispatch:
 
 permissions:
