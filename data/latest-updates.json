@@ -1,12 +1,102 @@
 [
   {
+    "id": "hit-today-bf3603418e5e",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "关于申报中国高校产学研创新基金 ——联合专项（八期）申请指南的通知",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131111",
+    "publishedAt": "23小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-3f8d9b690cbb",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "哈尔滨启航劳务派遣有限公司派遣至全媒体中心拟派遣人员公示",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131129",
+    "publishedAt": "33分钟前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-5f0eae44609d",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "关于招募“第二届气候领导力国际会议” 以及“国际暑期学校”志愿者的通知",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131124",
+    "publishedAt": "3小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-3175c0d6f9e3",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "关于师生服务中心2026年夏季学期和暑假期间工作安排的通知",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131125",
+    "publishedAt": "2小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-defbea7e11ee",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "2026年共建国际联合实验室专项资助计划评审结果公示",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131123",
+    "publishedAt": "3小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-23b74e39a97e",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "天隼实验室关于征集某专项项目指南的通知",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131122",
+    "publishedAt": "3小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-6a62eb496435",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "2026年资助我校在华举办国际会议项目评审结果公示（第三批）",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131121",
+    "publishedAt": "3小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-9ecbbcaf256e",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "2026年资助我校教师出国（境）参加国际 会议项目评审结果公示（第三批）",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131120",
+    "publishedAt": "3小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-ec6775c6abc1",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "关于组织申报重点新材料研发及应用国家科技重大专项（科技创新2030重大项目）2026年度第二批项目的通知",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131116",
+    "publishedAt": "5小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
+    "id": "hit-today-2fc9c8f579f1",
+    "sourceId": "hit-today",
+    "sourceName": "今日哈工大",
+    "title": "哈尔滨工业大学2026年暑期社会实践立项结果公示",
+    "url": "https://today.hit.edu.cn/article/2026/07/08/131115",
+    "publishedAt": "5小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
+  },
+  {
     "id": "hit-today-c8420d90a971",
     "sourceId": "hit-today",
     "sourceName": "今日哈工大",
     "title": "哈尔滨工业大学总务处/后勤集团餐饮档口引进服务（联合经营）项目遴选公告",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131114",
-    "publishedAt": "9秒前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "18小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-a763fc20c7d2",
@@ -14,8 +104,8 @@
     "sourceName": "今日哈工大",
     "title": "哈尔滨启航劳务派遣有限公司派遣到哈尔滨工业大学能源科学与工程学院力机械振动与噪声控制技术研究所招聘公告",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131112",
-    "publishedAt": "3小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "22小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-557391fe16a2",
@@ -23,8 +113,8 @@
     "sourceName": "今日哈工大",
     "title": "【志愿者招募ing】这场全国性赛事，缺你一个！",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131108",
-    "publishedAt": "5小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "23小时前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-422a45c6b4ba",
@@ -32,8 +122,8 @@
     "sourceName": "今日哈工大",
     "title": "【达人指路】人文社科学部关于举办“简历门诊”一对一咨询（第二期）活动的通知",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131109",
-    "publishedAt": "5小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-e0885e7633fc",
@@ -41,8 +131,8 @@
     "sourceName": "今日哈工大",
     "title": "关于做好2026年夏季学期和暑假期间实验室安全工作的通知",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131106",
-    "publishedAt": "6小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-70d579117937",
@@ -50,8 +140,8 @@
     "sourceName": "今日哈工大",
     "title": "哈尔滨启航劳务派遣有限公司派遣到哈工大航天学院复合材料与结构研究所招聘公告",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131105",
-    "publishedAt": "6小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-30c52599f02c",
@@ -59,8 +149,8 @@
     "sourceName": "今日哈工大",
     "title": "欢迎报考郑州专项 | 智能测试与控制技术研究所",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131100",
-    "publishedAt": "9小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-e45774ce6d3a",
@@ -68,8 +158,8 @@
     "sourceName": "今日哈工大",
     "title": "【源路助航】能源学院“源梦生涯体验馆”二级就业辅导站2026年春季学期第十八周预约通知",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131104",
-    "publishedAt": "8小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-2298afc8fd94",
@@ -77,8 +167,8 @@
     "sourceName": "今日哈工大",
     "title": "关于查阅国家国防科工局配套科研规划类和新域新质新材料类项目指南的通知",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131103",
-    "publishedAt": "8小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "publishedAt": "1天前",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-today-d9b3ae37153b",
@@ -86,98 +176,17 @@
     "sourceName": "今日哈工大",
     "title": "关于清理废置（弃）自行车的通知",
     "url": "https://today.hit.edu.cn/article/2026/07/07/131097",
-    "publishedAt": "10小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-e2a95b3790e5",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "哈尔滨启航劳务派遣有限公司派遣到哈尔滨工业大学分析测试中心招聘公告",
-    "url": "https://today.hit.edu.cn/article/2026/07/07/131092",
     "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
-    "id": "hit-today-2366980465e6",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "探索教育数字化转型：计算学部自研智慧监考系统在“人工智能赋能教育研讨会”作交流汇报",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131095",
-    "publishedAt": "23小时前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-5e7d3a5df833",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "“功夫·问道”本科生学术沙龙第十一期",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131094",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-7ea36b685d10",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "哈尔滨启航劳务派遣有限公司派遣至电气工程及自动化学院储能与电力变换研究所拟派遣人员公示",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131089",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-f0bf40966aad",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "航天学院二级心理辅导站、就业规划咨询室 春季学期第十八周预约通知暨辅导员下沉办公安排公示",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131090",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-5988182ee4ba",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "关于举办2026年教职工子女“工苗暑期夏令营”的通知",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131088",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-0df136436b9b",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "2025级本科生大一年度项目计划优秀项目评选结果公示",
-    "url": "https://today.hit.edu.cn/article/2026/07/03/131036",
-    "publishedAt": "3天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-b1454f903542",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "关于申报中国博士后科学基金第80批面上资助的通知",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131087",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-8f9cc772c7ab",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "人文社科学部“文心职达”就业咨询第十八周预约安排",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131086",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-today-00d9ef67d394",
-    "sourceId": "hit-today",
-    "sourceName": "今日哈工大",
-    "title": "人文社科学部“心启点”二级心理辅导站暨职工心理小家第十八周预约安排",
-    "url": "https://today.hit.edu.cn/article/2026/07/06/131085",
-    "publishedAt": "1天前",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "id": "hit-news-f1f597f7a3a7",
+    "sourceId": "hit-news",
+    "sourceName": "哈工大新闻网",
+    "title": "哈工大牵头的10项成果荣获国家科学技术奖",
+    "url": "https://news.hit.edu.cn/2026/0708/c1510a242822/page.htm",
+    "publishedAt": "2026-07-08",
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "graduate-0bacbc7a350c",
@@ -276,7 +285,7 @@
     "title": "哈工大与中国商飞高质量共建空天学院再启新程",
     "url": "https://news.hit.edu.cn/2026/0707/c1510a242807/page.htm",
     "publishedAt": "2026-07-07",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-news-fce62fab4786",
@@ -285,7 +294,7 @@
     "title": "哈工大陈西课题组提出的“内吞降解抗体”开辟膜蛋白降解新策略",
     "url": "https://news.hit.edu.cn/2026/0706/c1510a242802/page.htm",
     "publishedAt": "2026-07-07",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-news-96863ab0e3fc",
@@ -294,7 +303,7 @@
     "title": "校党委书记陈杰、校长韩杰才拜会重庆市委书记袁家军 签署市校深化战略合作协议",
     "url": "https://news.hit.edu.cn/2026/0706/c1510a242804/page.htm",
     "publishedAt": "2026-07-06",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "materials-19804320e2e6",
@@ -321,7 +330,7 @@
     "title": "【新知论坛2026-24】7月6日新加坡南洋理工大学佟思亮讲座通知",
     "url": "https://som.hit.edu.cn/info/1011/24482.htm",
     "publishedAt": "2026-7-6",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "hit-news-b4bc077bffda",
@@ -330,16 +339,7 @@
     "title": "哈工大举办离退休教职工家庭医生签约启动仪式暨大型义诊活动",
     "url": "https://news.hit.edu.cn/2026/0704/c1510a242770/page.htm",
     "publishedAt": "2026-07-05",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
-  },
-  {
-    "id": "hit-news-84ac38c40d6d",
-    "sourceId": "hit-news",
-    "sourceName": "哈工大新闻网",
-    "title": "教育部高校学生司（高校毕业生就业服务司）司长俞伟跃来校调研",
-    "url": "https://news.hit.edu.cn/2026/0704/c1510a242767/page.htm",
-    "publishedAt": "2026-07-04",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "environment-275d07081e11",
@@ -375,7 +375,7 @@
     "title": "未来早知道 | 2026年7月活动日历新鲜出炉!",
     "url": "https://hbs.hit.edu.cn/info/1042/3982.htm",
     "publishedAt": "2026-07-03",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "marxism-7a267408f1f4",
@@ -456,7 +456,7 @@
     "title": "【新知论坛2026-23】7月1日清华大学吕孝礼讲座通知",
     "url": "https://som.hit.edu.cn/info/1011/24484.htm",
     "publishedAt": "2026-7-1",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "chemistry-a9d689e49263",
@@ -600,7 +600,7 @@
     "title": "【新知论坛2026-22】6月26日生态环境部环境规划院董战峰讲座通知",
     "url": "https://som.hit.edu.cn/info/1011/24461.htm",
     "publishedAt": "2026-6-26",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "management-339883e5b540",
@@ -609,7 +609,7 @@
     "title": "关于2026年春季学期经管学院科研与智库“揭榜挂帅”拟立项项目的公示",
     "url": "https://som.hit.edu.cn/info/1011/24459.htm",
     "publishedAt": "2026-6-26",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "life-science-4029b92eec7c",
@@ -987,7 +987,7 @@
     "title": "关于举办2026年全国高等院校数智化企业经营沙盘大赛校赛的通知",
     "url": "https://hbs.hit.edu.cn/info/1042/3948.htm",
     "publishedAt": "2026-06-08",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "architecture-design-6a168381bc20",
@@ -1032,7 +1032,7 @@
     "title": "关于组织参加首届黑龙江省注册会计师行业胜任能力青年挑战赛的通知",
     "url": "https://hbs.hit.edu.cn/info/1042/3942.htm",
     "publishedAt": "2026-06-05",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "transportation-f72c94a89d8a",
@@ -1176,7 +1176,7 @@
     "title": "科技商学系列讲座 | 贝勒大学讲席教授张旭讲座",
     "url": "https://hbs.hit.edu.cn/info/1042/3926.htm",
     "publishedAt": "2026-05-25",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "environment-545a33c71895",
@@ -1257,7 +1257,7 @@
     "title": "会议通知：第二届气候领导力国际会议",
     "url": "https://hbs.hit.edu.cn/info/1042/3839.htm",
     "publishedAt": "2026-03-10",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   },
   {
     "id": "math-d7ea7473acc7",
@@ -1302,6 +1302,6 @@
     "title": "卓越青年学者神舟论坛哈工大经管学院诚邀全球英才！",
     "url": "https://som.hit.edu.cn/info/1011/24490.htm",
     "publishedAt": "07-03",
-    "fetchedAt": "2026-07-07T21:54:59+08:00"
+    "fetchedAt": "2026-07-08T14:16:45+08:00"
   }
 ]
