@@ -1,12 +1,14 @@
 import { loadEnvConfig } from "@next/env";
 import {
   buildDailyDigest,
+  getDigestWindowForSubscription,
   getActiveDailyDigestSubscriptions,
   hasSentDigest,
   recordDigestDelivery
 } from "@/lib/digest/service";
-import { getDefaultDailyDigestWindow } from "@/lib/digest/windows";
+import { getCurrentDailyDigestPeriodEnd } from "@/lib/digest/windows";
 import { sendDailyDigestEmail } from "@/lib/email/resend";
+import type { DigestWindow } from "@/lib/digest/types";
 
 type DigestRunStats = {
   users: number;
@@ -57,7 +59,7 @@ function logDryRunStats(stats: DigestDryRunStats) {
 }
 
 async function runDryRun() {
-  const window = getDefaultDailyDigestWindow();
+  const periodEnd = getCurrentDailyDigestPeriodEnd();
   const subscriptions = await getActiveDailyDigestSubscriptions();
   const stats: DigestDryRunStats = {
     users: subscriptions.length,
@@ -69,6 +71,7 @@ async function runDryRun() {
 
   for (const subscription of subscriptions) {
     try {
+      const window = await getDigestWindowForSubscription(subscription.id, periodEnd);
       const digest = await buildDailyDigest(subscription.id, window);
       stats.notices += digest.total;
       stats.groups += digest.groups.length;
@@ -92,7 +95,7 @@ async function main() {
     return;
   }
 
-  const window = getDefaultDailyDigestWindow();
+  const periodEnd = getCurrentDailyDigestPeriodEnd();
   const subscriptions = await getActiveDailyDigestSubscriptions();
   const stats: DigestRunStats = {
     users: subscriptions.length,
@@ -105,14 +108,17 @@ async function main() {
 
   for (const subscription of subscriptions) {
     let noticeCount = 0;
+    let digestWindow: DigestWindow | null = null;
 
     try {
-      if (await hasSentDigest(subscription.id, window)) {
+      digestWindow = await getDigestWindowForSubscription(subscription.id, periodEnd);
+
+      if (await hasSentDigest(subscription.id, digestWindow)) {
         stats.skipped += 1;
         continue;
       }
 
-      const digest = await buildDailyDigest(subscription.id, window);
+      const digest = await buildDailyDigest(subscription.id, digestWindow);
       noticeCount = digest.total;
       stats.notices += digest.total;
       await sendDailyDigestEmail({
@@ -122,17 +128,22 @@ async function main() {
       });
       await recordDigestDelivery({
         subscriptionId: subscription.id,
-        window,
+        window: digestWindow,
         noticeCount: digest.total,
         status: "sent"
       });
       stats.sent += 1;
     } catch (error) {
       stats.failed += 1;
+      if (!digestWindow) {
+        stats.failedDeliveryRecords += 1;
+        continue;
+      }
+
       try {
         await recordDigestDelivery({
           subscriptionId: subscription.id,
-          window,
+          window: digestWindow,
           noticeCount,
           status: "failed",
           errorMessage: sanitizeError(error)

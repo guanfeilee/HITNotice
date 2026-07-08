@@ -1,7 +1,8 @@
 import type { DigestWindow } from "@/lib/digest/types";
 
 const beijingTimeZone = "Asia/Shanghai";
-const deliveryHours = [12, 20] as const;
+const dailyDigestHour = 20;
+const dayMs = 24 * 60 * 60 * 1000;
 
 function getBeijingParts(date: Date) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -54,28 +55,28 @@ export function formatBeijingDateTime(value: string | Date) {
   }).format(date);
 }
 
-export function getDefaultDailyDigestWindow(now = new Date()): DigestWindow {
+export function getCurrentDailyDigestPeriodEnd(now = new Date()) {
   const parts = getBeijingParts(now);
-  const currentNoon = beijingWallTimeToDate(parts.year, parts.month, parts.day, deliveryHours[0]);
-  const currentEvening = beijingWallTimeToDate(parts.year, parts.month, parts.day, deliveryHours[1]);
-  const previousEvening = new Date(currentEvening.getTime() - 24 * 60 * 60 * 1000);
+  return beijingWallTimeToDate(parts.year, parts.month, parts.day, dailyDigestHour);
+}
 
-  if (now.getTime() <= currentNoon.getTime()) {
-    return {
-      start: previousEvening,
-      end: currentNoon
-    };
-  }
-
-  if (now.getTime() <= currentEvening.getTime()) {
-    return {
-      start: currentNoon,
-      end: currentEvening
-    };
-  }
+export function getDefaultDailyDigestWindow(now = new Date()): DigestWindow {
+  const end = getCurrentDailyDigestPeriodEnd(now);
 
   return {
-    start: currentEvening,
-    end: new Date(currentNoon.getTime() + 24 * 60 * 60 * 1000)
+    start: new Date(end.getTime() - dayMs),
+    end
+  };
+}
+
+export function getDigestWindowFromLastSuccess(periodEnd: Date, lastSuccessfulPeriodEnd?: string | null): DigestWindow {
+  const parsedStart = lastSuccessfulPeriodEnd ? new Date(lastSuccessfulPeriodEnd) : null;
+  const start = parsedStart && !Number.isNaN(parsedStart.getTime())
+    ? parsedStart
+    : new Date(periodEnd.getTime() - dayMs);
+
+  return {
+    start,
+    end: periodEnd
   };
 }

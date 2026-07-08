@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { sources } from "@/lib/sources";
 import { getSupabaseAdminEnv, supabaseClientOptions } from "@/lib/supabase/config";
-import { formatBeijingDate } from "@/lib/digest/windows";
+import { formatBeijingDate, getDigestWindowFromLastSuccess } from "@/lib/digest/windows";
 import type {
   DailyDigest,
   DigestGroup,
@@ -166,13 +166,31 @@ export async function buildDailyDigest(subscriptionId: string, window: DigestWin
   };
 }
 
+export async function getDigestWindowForSubscription(subscriptionId: string, periodEnd: Date): Promise<DigestWindow> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("email_deliveries")
+    .select("period_end")
+    .eq("subscription_id", subscriptionId)
+    .eq("digest_type", "daily_digest")
+    .eq("status", "sent")
+    .lt("period_end", periodEnd.toISOString())
+    .order("period_end", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load previous digest delivery: ${error.message}`);
+  }
+
+  return getDigestWindowFromLastSuccess(periodEnd, data?.period_end);
+}
+
 export async function hasSentDigest(subscriptionId: string, window: DigestWindow) {
   const { data, error } = await getSupabaseAdmin()
     .from("email_deliveries")
     .select("id")
     .eq("subscription_id", subscriptionId)
     .eq("digest_type", "daily_digest")
-    .eq("period_start", window.start.toISOString())
     .eq("period_end", window.end.toISOString())
     .eq("status", "sent")
     .maybeSingle();

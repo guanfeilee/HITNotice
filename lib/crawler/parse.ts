@@ -4,6 +4,7 @@ import type { CrawlSource, ParsedNotice } from "@/lib/crawler/types";
 import { cleanTitle, normalizeUrl } from "@/lib/crawler/normalize";
 
 const maxItemsPerSource = 20;
+const maxTodayItems = 35;
 
 const skipTitlePatterns = [
   /^更多$/,
@@ -121,6 +122,10 @@ function scoreNotice(notice: ParsedNotice) {
   return score;
 }
 
+function getMaxItemsForSource(source: CrawlSource) {
+  return source.id === "today" ? maxTodayItems : maxItemsPerSource;
+}
+
 export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl = source.url) {
   const $ = cheerio.load(html);
   const candidates: Array<ParsedNotice & { index: number; score: number }> = [];
@@ -158,7 +163,7 @@ export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl 
       seen.add(key);
       return true;
     })
-    .slice(0, maxItemsPerSource)
+    .slice(0, getMaxItemsForSource(source))
     .map(({ title, url, published_at }) => ({ title, url, published_at }));
 
   if (parsed.length > 0 || source.id !== "life") {
@@ -192,7 +197,7 @@ function parseLifeScienceNotices($: cheerio.CheerioAPI, source: CrawlSource, pag
     seen.add(url);
   });
 
-  return notices.slice(0, maxItemsPerSource);
+  return notices.slice(0, getMaxItemsForSource(source));
 }
 
 function extractLifeScienceDate(text: string) {

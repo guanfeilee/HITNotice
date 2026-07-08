@@ -29,7 +29,7 @@ function renderGroups(digest: DailyDigest) {
   if (digest.groups.length === 0) {
     return `
       <div style="border: 1px solid #ded8cc; border-radius: 12px; padding: 18px; background: #faf8f3; color: #666666;">
-        当前时间窗口内没有新增通知。
+        过去24小时暂无新的通知更新。
       </div>
     `;
   }
