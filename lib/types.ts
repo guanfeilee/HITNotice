@@ -1,5 +1,3 @@
-export type { Notice, NoticeFetchResult, NoticeSourceGroup } from "@/types/notice";
-
 export type SourceGroup = "public" | "academic";
 export type SourceCategory = "public" | "school";
 export type SourceStatus = "pending" | "active";
@@ -22,23 +20,4 @@ export type SubscriptionDraft = {
   email: string;
   sourceIds: string[];
   frequency: Frequency | "";
-};
-
-export type NewsItem = {
-  id: string;
-  title: string;
-  url: string;
-  date?: string;
-  source: string;
-  sourceUrl: string;
-};
-
-export type LatestUpdate = {
-  id: string;
-  sourceId: string;
-  sourceName: string;
-  title: string;
-  url: string;
-  publishedAt: string;
-  fetchedAt: string;
 };

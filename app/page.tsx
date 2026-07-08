@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { HomeNoticeFeed } from "@/components/HomeNoticeFeed";
 import "./home.css";
 
 const features = [
@@ -29,15 +28,9 @@ export default function Home() {
             <Link className="button primary" href="/subscribe">
               开始订阅
             </Link>
-            <Link className="button secondary" href="/latest">
-              查看最近更新
-            </Link>
           </div>
         </div>
       </section>
-      <div className="container">
-        <HomeNoticeFeed />
-      </div>
     </div>
   );
 }

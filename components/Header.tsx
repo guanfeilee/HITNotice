@@ -4,7 +4,6 @@ import "./Header.css";
 const navItems = [
   { href: "/", label: "首页" },
   { href: "/subscribe", label: "订阅" },
-  { href: "/latest", label: "最近更新" },
   { href: "/sources", label: "信息渠道" },
   { href: "/about", label: "关于" }
 ];
