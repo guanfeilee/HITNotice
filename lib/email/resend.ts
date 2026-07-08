@@ -8,6 +8,22 @@ type ResendErrorBody = {
   statusCode?: number;
 };
 
+function sanitizeResendReason(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+}
+
+function formatResendError(response: Response, body: ResendErrorBody | null) {
+  const type = body?.name ?? "Resend API error";
+  const reason = sanitizeResendReason(body?.message ?? response.statusText ?? "Request failed");
+
+  return `${type}: ${reason} (HTTP ${response.status})`;
+}
+
 export async function sendDailyDigestEmail(params: {
   to: string;
   digest: DailyDigest;
@@ -40,6 +56,6 @@ export async function sendDailyDigestEmail(params: {
       errorBody = null;
     }
 
-    throw new Error(errorBody?.message ?? `Resend API failed with HTTP ${response.status}`);
+    throw new Error(formatResendError(response, errorBody));
   }
 }

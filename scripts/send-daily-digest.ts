@@ -14,6 +14,7 @@ type DigestRunStats = {
   sent: number;
   failed: number;
   skipped: number;
+  failedDeliveryRecords: number;
 };
 
 type DigestDryRunStats = {
@@ -29,9 +30,18 @@ function isDryRun() {
 }
 
 function sanitizeError(error: unknown) {
+  const type = error instanceof Error && error.name ? error.name : "Error";
   const message = error instanceof Error ? error.message : String(error);
 
-  return message.replace(/(Bearer\s+)[A-Za-z0-9._-]+/g, "$1[redacted]").slice(0, 1000);
+  const reason = message
+    .replace(/(Bearer\s+)[A-Za-z0-9._-]+/g, "$1[redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+
+  return `${type}: ${reason}`;
 }
 
 function logStats(stats: DigestRunStats) {
@@ -89,10 +99,13 @@ async function main() {
     notices: 0,
     sent: 0,
     failed: 0,
-    skipped: 0
+    skipped: 0,
+    failedDeliveryRecords: 0
   };
 
   for (const subscription of subscriptions) {
+    let noticeCount = 0;
+
     try {
       if (await hasSentDigest(subscription.id, window)) {
         stats.skipped += 1;
@@ -100,6 +113,7 @@ async function main() {
       }
 
       const digest = await buildDailyDigest(subscription.id, window);
+      noticeCount = digest.total;
       stats.notices += digest.total;
       await sendDailyDigestEmail({
         to: subscription.email,
@@ -118,17 +132,21 @@ async function main() {
         await recordDigestDelivery({
           subscriptionId: subscription.id,
           window,
-          noticeCount: 0,
+          noticeCount,
           status: "failed",
           errorMessage: sanitizeError(error)
         });
       } catch {
-        // Keep the public log limited to aggregate counts only.
+        stats.failedDeliveryRecords += 1;
       }
     }
   }
 
   logStats(stats);
+
+  if (stats.failedDeliveryRecords > 0) {
+    console.log(`Digest failed delivery record errors=${stats.failedDeliveryRecords}`);
+  }
 
   if (stats.failed > 0) {
     process.exitCode = 1;
