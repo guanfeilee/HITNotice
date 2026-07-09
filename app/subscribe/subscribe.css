@@ -1,6 +1,5 @@
 .subscribe-layout {
   display: grid;
-  gap: 20px;
   max-width: 980px;
 }
 
@@ -14,34 +13,8 @@
   width: 100%;
 }
 
-.subscribe-privacy {
-  padding: 20px;
-}
-
-.subscribe-privacy h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  line-height: 1.3;
-}
-
-.subscribe-privacy ul {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
-  padding-left: 20px;
-  color: var(--muted);
-}
-
-.subscribe-privacy li {
-  padding-left: 2px;
-}
-
 @media (min-width: 980px) {
   .subscribe-form {
-    padding: 22px;
-  }
-
-  .subscribe-privacy {
     padding: 22px;
   }
 }
