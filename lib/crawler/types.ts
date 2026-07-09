@@ -7,6 +7,7 @@ export type CrawlSource = {
   baseUrl: string;
   category: string;
   type: CrawlSourceType;
+  titleSelector?: string;
 };
 
 export type ParsedNotice = {

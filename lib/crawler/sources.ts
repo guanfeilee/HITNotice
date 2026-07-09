@@ -7,5 +7,6 @@ export const crawlSources: CrawlSource[] = sourceRegistry.map((source) => ({
   url: source.url,
   baseUrl: source.baseUrl,
   category: source.crawlCategory,
-  type: source.crawlType
+  type: source.crawlType,
+  titleSelector: "titleSelector" in source ? source.titleSelector : undefined
 }));

@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { Element } from "domhandler";
+import type { AnyNode } from "domhandler";
 import type { CrawlSource, ParsedNotice } from "@/lib/crawler/types";
 import { cleanTitle, normalizeUrl } from "@/lib/crawler/normalize";
 
@@ -90,7 +90,7 @@ function isLikelyArticleUrl(url: string, source: CrawlSource) {
   );
 }
 
-function getContextText($: cheerio.CheerioAPI, element: Element) {
+function getContextText($: cheerio.CheerioAPI, element: AnyNode) {
   const anchor = $(element);
   const containers = [
     anchor.closest("li"),
@@ -109,7 +109,7 @@ function getContextText($: cheerio.CheerioAPI, element: Element) {
   return anchor.text().replace(/\s+/g, " ").trim();
 }
 
-function getTitle($: cheerio.CheerioAPI, element: Element) {
+function getTitle($: cheerio.CheerioAPI, element: AnyNode) {
   const anchor = $(element);
   return cleanTitle(anchor.attr("title") ?? anchor.text());
 }
@@ -121,18 +121,25 @@ function getMaxItemsForSource(source: CrawlSource) {
 export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl = source.url) {
   const $ = cheerio.load(html);
   const candidates: ParsedNotice[] = [];
+  const elements = source.titleSelector ? $(source.titleSelector) : $("a[href]");
 
-  $("a[href]").each((_, element) => {
-    const href = $(element).attr("href");
+  elements.each((_, element) => {
+    const selected = $(element);
+    const anchor = source.titleSelector
+      ? selected.is("a[href]")
+        ? selected
+        : selected.closest("a[href]")
+      : selected;
+    const href = anchor.attr("href");
     if (!isUsableHref(href)) return;
 
-    const title = getTitle($, element);
+    const title = source.titleSelector ? cleanTitle(selected.text()) : getTitle($, element);
     if (!isLikelyTitle(title)) return;
 
     const url = normalizeUrl(href ?? "", pageUrl);
     if (!url || !isLikelyArticleUrl(url, source)) return;
 
-    const context = getContextText($, element);
+    const context = getContextText($, anchor.get(0) ?? element);
     candidates.push({
       title,
       url,

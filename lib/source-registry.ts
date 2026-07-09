@@ -11,6 +11,7 @@ export type SourceRegistryEntry = {
   baseUrl: string;
   enabled: boolean;
   parserType: SourceParserType;
+  titleSelector?: string;
   crawlCategory: string;
   crawlType: CrawlSourceType;
 };
@@ -52,6 +53,7 @@ export const sourceRegistry = [
     baseUrl: "https://hituc.hit.edu.cn",
     enabled: true,
     parserType: "generic",
+    titleSelector: ".news_title",
     crawlCategory: "教务/本科",
     crawlType: "undergraduate"
   },
@@ -100,7 +102,7 @@ export const sourceRegistry = [
     group: "academic",
     category: "school",
     status: "active",
-    url: "https://sme.hit.edu.cn/18013/list2.htm",
+    url: "https://sme.hit.edu.cn/18013/list1.htm",
     baseUrl: "https://sme.hit.edu.cn",
     enabled: true,
     parserType: "generic",
@@ -195,6 +197,7 @@ export const sourceRegistry = [
     baseUrl: "https://som.hit.edu.cn",
     enabled: true,
     parserType: "generic",
+    titleSelector: ".gl-intr h3 a",
     crawlCategory: "学院/学部",
     crawlType: "college"
   },
@@ -208,6 +211,7 @@ export const sourceRegistry = [
     baseUrl: "https://hbs.hit.edu.cn",
     enabled: true,
     parserType: "generic",
+    titleSelector: ".list-right .xw-ul > li .xw-ul-tt",
     crawlCategory: "学院/学部",
     crawlType: "college"
   },
