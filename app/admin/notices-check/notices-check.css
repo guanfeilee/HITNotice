@@ -1,0 +1,93 @@
+.notices-check-container {
+  display: grid;
+  gap: 24px;
+  max-width: 920px;
+}
+
+.notices-check-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3.5rem);
+  line-height: 1.08;
+}
+
+.source-filter {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.source-filter label {
+  font-weight: 800;
+}
+
+.source-filter-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.source-filter select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.source-filter select:focus {
+  border-color: var(--accent);
+  outline: 3px solid var(--accent-soft);
+}
+
+.notice-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.notice-group {
+  padding: 18px;
+}
+
+.notice-group h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.notice-group ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.notice-group a {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.notice-group a:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.empty-notices {
+  margin: 0;
+  padding: 18px;
+  color: var(--muted);
+}
+
+@media (min-width: 620px) {
+  .source-filter {
+    padding: 18px;
+  }
+
+  .source-filter-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .source-filter .button {
+    min-width: 96px;
+  }
+}
