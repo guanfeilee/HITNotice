@@ -9,6 +9,14 @@ type SourceSelectorProps = {
   onChange: (sourceIds: string[]) => void;
 };
 
+const prioritizedAcademicSourceIds = ["med", "life"];
+const subscriptionAcademicSources = [
+  ...prioritizedAcademicSourceIds
+    .map((id) => academicSources.find((source) => source.id === id))
+    .filter((source): source is Source => Boolean(source)),
+  ...academicSources.filter((source) => !prioritizedAcademicSourceIds.includes(source.id))
+];
+
 function SourceGroup({
   title,
   sources,
@@ -61,7 +69,7 @@ export function SourceSelector({ selectedIds, onChange }: SourceSelectorProps) {
       />
       <SourceGroup
         title={sourceGroups.academic}
-        sources={academicSources}
+        sources={subscriptionAcademicSources}
         selectedIds={selectedIds}
         onToggle={toggle}
       />
