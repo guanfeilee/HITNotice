@@ -23,10 +23,10 @@ export default function AboutPage() {
   return (
     <div className="page about-page">
       <div className="container">
-        <p className="eyebrow">关于 HITnotice</p>
+        <h1 className="about-title">关于 HITnotice</h1>
         <div className="about-grid section">
           <InfoList title="隐私说明" items={privacy} />
-          <section className="about-card card">
+          <section className="about-card author-card card">
             <h2>项目作者</h2>
             <div className="author-details">
               <p>李冠霏</p>
@@ -34,7 +34,7 @@ export default function AboutPage() {
               <p>生命科学和医学学部</p>
             </div>
           </section>
-          <section className="about-card card">
+          <section className="about-card contact-card card">
             <h2>联系方式</h2>
             <p>如需反馈问题或提出建议，可以通过邮箱联系：</p>
             <a className="contact-link" href="mailto:guanfeilee7@gmail.com">
