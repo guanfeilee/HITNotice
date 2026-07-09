@@ -24,6 +24,19 @@
   color: var(--muted);
 }
 
+.author-details p {
+  margin-bottom: 4px;
+}
+
+.author-details p:first-child {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.author-details p:last-child {
+  margin-bottom: 0;
+}
+
 .contact-link {
   color: var(--accent-strong);
   font-weight: 800;
@@ -37,5 +50,11 @@
 @media (min-width: 860px) {
   .about-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1040px) {
+  .about-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

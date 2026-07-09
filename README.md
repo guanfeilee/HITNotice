@@ -106,6 +106,13 @@ HITNotice only stores the email address and subscription preferences required to
 
 HITNotice only aggregates publicly accessible notice pages and does not access private or login-protected content.
 
+## Author
+
+Guanfei Li<br>
+Harbin Institute of Technology<br>
+HITnotice is an independent student-built project developed by Guanfei Li.<br>
+It is not affiliated with, endorsed by, or operated by Harbin Institute of Technology.
+
 ## Disclaimer
 
 HITNotice is an independent student-built project and is not affiliated with, endorsed by, or operated by Harbin Institute of Technology.

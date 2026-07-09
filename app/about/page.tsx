@@ -24,10 +24,18 @@ export default function AboutPage() {
     <div className="page">
       <div className="container">
         <p className="eyebrow">关于 HITnotice</p>
-        <h1 className="section-title">隐私说明与联系方式</h1>
-        <p className="lead">HITnotice 是面向公开信息渠道标题更新的提醒工具，不替代任何官网信息。</p>
+        <h1 className="section-title">关于项目</h1>
+        <p className="lead">HITnotice 是由学生独立开发的校园公开通知提醒服务，与哈尔滨工业大学官方平台无关。</p>
         <div className="about-grid section">
           <InfoList title="隐私说明" items={privacy} />
+          <section className="about-card card">
+            <h2>项目作者</h2>
+            <div className="author-details">
+              <p>李冠霏</p>
+              <p>哈尔滨工业大学</p>
+              <p>生命科学和医学学部</p>
+            </div>
+          </section>
           <section className="about-card card">
             <h2>联系方式</h2>
             <p>如需反馈问题或提出建议，可以通过邮箱联系：</p>
