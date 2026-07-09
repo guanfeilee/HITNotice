@@ -1,6 +1,7 @@
 .about-title {
   margin: 0;
   color: var(--accent);
+  font-family: var(--font-serif-sc);
   font-size: 2.125rem;
   font-weight: 700;
   line-height: 1.2;
@@ -16,6 +17,7 @@
 .about-card {
   min-height: 180px;
   padding: 24px;
+  font-family: var(--font-serif-sc);
 }
 
 .about-card h2 {
@@ -76,6 +78,7 @@
 .contact-link {
   display: block;
   color: var(--accent-strong);
+  font-family: var(--font-sans);
   font-size: 1.125rem;
   font-weight: 700;
   text-align: center;

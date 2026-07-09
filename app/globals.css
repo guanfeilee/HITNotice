@@ -14,6 +14,8 @@
   --success: #000070;
   --success-bg: #efedf8;
   --shadow: 0 12px 30px rgba(34, 34, 34, 0.07);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-serif-sc: "Noto Serif SC", var(--font-sans);
 }
 
 * {
@@ -28,9 +30,16 @@ body {
   margin: 0;
   color: var(--text);
   background: var(--bg);
-  font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+.lead {
+  font-family: var(--font-serif-sc);
 }
 
 .app-shell {
@@ -52,6 +61,7 @@ button,
 input,
 select {
   font: inherit;
+  font-family: var(--font-sans);
 }
 
 button {
@@ -113,6 +123,7 @@ button {
   border-radius: 12px;
   padding: 10px 16px;
   font-weight: 700;
+  font-family: var(--font-sans);
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 

@@ -12,6 +12,7 @@
   border-radius: 12px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-sans);
 }
 
 .frequency-option.selected {

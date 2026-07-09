@@ -8,6 +8,7 @@
 
 .sources-page .section-title {
   margin-bottom: 18px;
+  font-family: var(--font-serif-sc);
   font-size: 1.35rem;
   font-weight: 800;
 }
@@ -29,6 +30,7 @@
 
 .source-card span {
   color: var(--text);
+  font-family: var(--font-serif-sc);
   font-size: 1.16rem;
   font-weight: 800;
   line-height: 1.35;

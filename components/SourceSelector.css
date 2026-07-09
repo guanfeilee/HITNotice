@@ -23,6 +23,7 @@
   border-radius: 12px;
   padding: 9px 11px;
   background: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-sans);
   font-weight: 700;
 }
 

@@ -63,6 +63,7 @@
 
 .notice-group a {
   color: var(--text);
+  font-family: var(--font-serif-sc);
   line-height: 1.55;
 }
 
@@ -76,6 +77,7 @@
   margin: 0;
   padding: 18px;
   color: var(--muted);
+  font-family: var(--font-serif-sc);
 }
 
 @media (min-width: 620px) {
