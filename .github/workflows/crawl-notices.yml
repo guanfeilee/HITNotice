@@ -2,8 +2,10 @@ name: Crawl notices
 
 on:
   schedule:
-    # Asia/Shanghai 19:45 on weekdays.
+    # Asia/Shanghai 19:45, 19:50, and 19:55, Monday to Friday.
     - cron: "45 11 * * 1-5"
+    - cron: "50 11 * * 1-5"
+    - cron: "55 11 * * 1-5"
   workflow_dispatch:
 
 permissions:
