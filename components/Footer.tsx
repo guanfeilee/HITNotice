@@ -11,7 +11,6 @@ export function Footer() {
         <p>{unofficialStatement}</p>
         <div className="footer-links">
           <Link href="/about">关于</Link>
-          <Link href="/unsubscribe">退订</Link>
         </div>
       </div>
     </footer>
