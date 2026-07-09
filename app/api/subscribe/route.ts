@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { frequencyOptions } from "@/lib/frequencies";
+import { allowedFrequencies } from "@/lib/frequencies";
 import { sources } from "@/lib/sources";
 import { sendSubscriptionConfirmationEmail } from "@/lib/email/resend";
 import type { Frequency } from "@/lib/types";
 
-const allowedFrequencies = new Set<Frequency>(frequencyOptions.map((option) => option.value));
+const allowedFrequencySet = new Set<Frequency>(allowedFrequencies);
 const enabledSourceIds = new Set(sources.filter((source) => source.enabled).map((source) => source.id));
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxSourceCount = 26;
@@ -50,7 +50,7 @@ function validateBody(body: SubscribeRequestBody): ValidatedSubscribeBody {
     return { ok: false, error: "请输入有效的邮箱地址。" };
   }
 
-  if (typeof body.frequency !== "string" || !allowedFrequencies.has(body.frequency as Frequency)) {
+  if (typeof body.frequency !== "string" || !allowedFrequencySet.has(body.frequency as Frequency)) {
     return { ok: false, error: "请选择有效的推送频率。" };
   }
 

@@ -12,8 +12,8 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link href="/" className="brand" aria-label="HITNotice 首页">
-          <strong>HITNotice</strong>
+        <Link href="/" className="brand" aria-label="HITnotice 首页">
+          <strong>HITnotice</strong>
         </Link>
         <nav className="nav" aria-label="主导航">
           {navItems.map((item) => (

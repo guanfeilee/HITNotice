@@ -3,7 +3,6 @@
 import { FormEvent, useState } from "react";
 import { FrequencySelector } from "@/components/FrequencySelector";
 import { SourceSelector } from "@/components/SourceSelector";
-import { scheduleSummary } from "@/lib/schedule";
 import type { SubscriptionDraft } from "@/lib/types";
 
 const initialDraft: SubscriptionDraft = {
@@ -102,18 +101,12 @@ export function SubscribeForm() {
         />
       </div>
 
-      <p className="schedule-note">{scheduleSummary}</p>
-
       {error ? <div className="notice" role="alert">{error}</div> : null}
       {saved ? (
         <div className="success" role="status">
-          订阅已保存。邮件推送功能将在后续启用。
+          订阅成功。我们会在工作日晚上 20:00 发送通知摘要。
         </div>
       ) : null}
-
-      <p className="privacy-note">
-        仅保存邮箱、所选信息渠道和推送频率；不收集姓名、学号、手机号或统一身份认证信息。
-      </p>
 
       <button className="button primary" type="submit" disabled={loading}>
         {loading ? "保存中..." : "保存订阅设置"}

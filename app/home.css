@@ -1,90 +1,74 @@
 .home-page {
-  display: grid;
-  gap: 30px;
+  display: flex;
+  min-height: calc(100svh - 150px);
+  align-items: center;
+  padding-top: 24px;
+  padding-bottom: 48px;
 }
 
 .hero {
-  display: grid;
-  gap: 18px;
-  align-items: center;
-}
-
-.hero-copy {
-  display: grid;
-  gap: 14px;
-}
-
-.hero-copy .page-title {
-  font-size: clamp(2.45rem, 12vw, 4rem);
-}
-
-.hero-copy .lead {
-  max-width: 560px;
-}
-
-.hero-side {
-  display: grid;
+  display: flex;
   width: 100%;
-  max-width: 440px;
-  align-content: center;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.hero-actions .button {
-  flex: 1 1 150px;
-  min-height: 48px;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.hero-notes {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.hero-notes p {
-  display: flex;
-  gap: 8px;
+  max-width: 760px;
+  flex-direction: column;
   align-items: center;
-  margin: 0;
+  justify-content: center;
+  text-align: center;
+}
+
+.hero .page-title {
+  color: var(--accent);
+  font-size: clamp(3.25rem, 10vw, 6.25rem);
+  font-weight: 800;
+  line-height: 0.98;
+}
+
+.hero-subtitle {
+  margin: 24px 0 0;
+  color: var(--text);
+  font-size: clamp(1.45rem, 4vw, 2.15rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.hero-description {
+  margin: 24px 0 0;
   color: var(--muted);
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  line-height: 1.8;
+}
+
+.hero-schedule {
+  margin: 18px 0 0;
+  color: var(--text);
   font-size: 0.98rem;
   font-weight: 700;
 }
 
-.hero-notes span {
-  color: var(--accent);
-  font-size: 0.95rem;
-  font-weight: 900;
+.hero-button {
+  min-width: 168px;
+  min-height: 52px;
+  margin-top: 32px;
+  padding-inline: 28px;
+  font-size: 1rem;
 }
 
-@media (min-width: 820px) {
+@media (max-width: 560px) {
   .home-page {
-    gap: 44px;
+    min-height: calc(100svh - 178px);
+    padding-top: 20px;
+    padding-bottom: 36px;
   }
 
-  .hero {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.7fr);
-    gap: clamp(36px, 6vw, 76px);
-    min-height: 300px;
+  .hero-description br {
+    display: none;
   }
 
-  .hero-copy {
-    align-content: center;
+  .hero-schedule {
+    max-width: 300px;
   }
 
-  .hero-side {
-    justify-self: center;
-  }
-
-  .hero-actions .button {
-    width: 100%;
+  .hero-button {
+    width: min(100%, 280px);
   }
 }

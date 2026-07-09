@@ -4,8 +4,8 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "HITNotice",
-  description: "校园公开信息渠道标题更新邮件提醒工具"
+  title: "HITnotice",
+  description: "哈工大公开通知提醒服务"
 };
 
 export default function RootLayout({
