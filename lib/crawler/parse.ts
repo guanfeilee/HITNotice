@@ -114,23 +114,15 @@ function getTitle($: cheerio.CheerioAPI, element: Element) {
   return cleanTitle(anchor.attr("title") ?? anchor.text());
 }
 
-function scoreNotice(notice: ParsedNotice) {
-  let score = 0;
-  if (notice.published_at) score += 3;
-  if (/\/(info|article|20[0-3]\d|c\d+a\d+)/i.test(notice.url)) score += 2;
-  if (/通知|公告|公示|申报|报名|安排|关于|研究生|本科|招聘|讲座/.test(notice.title)) score += 1;
-  return score;
-}
-
 function getMaxItemsForSource(source: CrawlSource) {
   return source.id === "today" ? maxTodayItems : maxItemsPerSource;
 }
 
 export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl = source.url) {
   const $ = cheerio.load(html);
-  const candidates: Array<ParsedNotice & { index: number; score: number }> = [];
+  const candidates: ParsedNotice[] = [];
 
-  $("a[href]").each((index, element) => {
+  $("a[href]").each((_, element) => {
     const href = $(element).attr("href");
     if (!isUsableHref(href)) return;
 
@@ -141,30 +133,22 @@ export function parseNoticesFromHtml(html: string, source: CrawlSource, pageUrl 
     if (!url || !isLikelyArticleUrl(url, source)) return;
 
     const context = getContextText($, element);
-    const notice = {
+    candidates.push({
       title,
       url,
       published_at: extractDate(context)
-    };
-
-    candidates.push({
-      ...notice,
-      index,
-      score: scoreNotice(notice)
     });
   });
 
   const seen = new Set<string>();
   const parsed = candidates
-    .sort((a, b) => b.score - a.score || a.index - b.index)
     .filter((notice) => {
       const key = notice.url;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .slice(0, getMaxItemsForSource(source))
-    .map(({ title, url, published_at }) => ({ title, url, published_at }));
+    .slice(0, getMaxItemsForSource(source));
 
   if (parsed.length > 0 || source.id !== "life") {
     return parsed;
