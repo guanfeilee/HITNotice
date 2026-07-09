@@ -18,9 +18,9 @@
 
 .hero .page-title {
   color: var(--accent);
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-size: clamp(3.25rem, 10vw, 6.25rem);
-  font-weight: 800;
+  font-weight: 400;
   line-height: 0.98;
 }
 

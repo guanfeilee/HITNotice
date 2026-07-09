@@ -23,7 +23,9 @@
 .brand strong {
   display: block;
   color: var(--accent);
+  font-family: var(--font-display);
   font-size: 1.16rem;
+  font-weight: 400;
   line-height: 1.2;
   letter-spacing: 0;
 }
