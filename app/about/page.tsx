@@ -1,9 +1,9 @@
 import "./about.css";
 
 const privacy = [
-  "HITnotice 仅保存邮箱地址和你的订阅设置，用于发送通知摘要。",
-  "我们不会收集姓名、学号、手机号等个人信息。",
-  "我们只聚合公开信息渠道，不访问需要登录或身份认证的内容。"
+  "仅保存邮箱、订阅信息渠道和推送频率",
+  "不收集姓名、学号、手机号、身份证、校园卡号或统一身份认证信息",
+  "不访问需要统一身份认证的内容"
 ];
 
 function InfoList({ title, items }: { title: string; items: string[] }) {
@@ -27,7 +27,7 @@ export default function AboutPage() {
         <h1 className="section-title">隐私原则与联系方式</h1>
         <p className="lead">HITNotice 是面向公开信息渠道标题更新的提醒工具，不替代任何官网信息。</p>
         <div className="about-grid section">
-          <InfoList title="隐私说明" items={privacy} />
+          <InfoList title="隐私原则" items={privacy} />
           <section className="about-card card">
             <h2>联系方式</h2>
             <p>如需反馈问题或提出建议，可以通过邮箱联系：</p>
