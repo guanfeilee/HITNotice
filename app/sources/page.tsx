@@ -27,7 +27,6 @@ export default function SourcesPage() {
   return (
     <div className="page sources-page">
       <div className="container">
-        <h1 className="sources-title">信息渠道目录</h1>
         <SourceCards title={sourceGroups.public} sources={publicSources} />
         <SourceCards title={sourceGroups.academic} sources={academicSources} />
       </div>

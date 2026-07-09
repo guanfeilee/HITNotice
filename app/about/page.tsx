@@ -21,11 +21,9 @@ function InfoList({ title, items }: { title: string; items: string[] }) {
 
 export default function AboutPage() {
   return (
-    <div className="page">
+    <div className="page about-page">
       <div className="container">
         <p className="eyebrow">关于 HITnotice</p>
-        <h1 className="section-title">关于项目</h1>
-        <p className="lead">HITnotice 是由学生独立开发的校园公开通知提醒服务，与哈尔滨工业大学官方平台无关。</p>
         <div className="about-grid section">
           <InfoList title="隐私说明" items={privacy} />
           <section className="about-card card">

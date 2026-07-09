@@ -1,15 +1,22 @@
+.about-page .eyebrow {
+  margin-bottom: 0;
+}
+
 .about-grid {
   display: grid;
   gap: 14px;
+  margin-top: 20px;
 }
 
 .about-card {
+  min-height: 180px;
   padding: 18px;
 }
 
 .about-card h2 {
   margin: 0 0 10px;
   font-size: 1.12rem;
+  text-align: center;
 }
 
 .about-card ul {
@@ -26,6 +33,7 @@
 
 .author-details p {
   margin-bottom: 4px;
+  text-align: center;
 }
 
 .author-details p:first-child {
