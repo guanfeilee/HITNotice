@@ -35,6 +35,10 @@
   padding-left: 20px;
 }
 
+.about-card li {
+  overflow-wrap: anywhere;
+}
+
 .about-card p {
   margin: 0 0 10px;
   color: var(--muted);

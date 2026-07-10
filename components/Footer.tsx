@@ -2,7 +2,7 @@ import Link from "next/link";
 import "./Footer.css";
 
 export const unofficialStatement =
-  "HITnotice 是学生个人开发的校园公开通知提醒服务，非哈尔滨工业大学官方平台。所有正式信息以官网为准。";
+  "HITnotice 是由李冠霏独立开发并维护的校园公开通知提醒服务，非哈尔滨工业大学官方平台。所有正式信息以官网为准。";
 
 export function Footer() {
   return (

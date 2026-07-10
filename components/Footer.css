@@ -13,6 +13,7 @@
 
 .footer-inner p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .footer-links {
