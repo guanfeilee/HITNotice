@@ -10,6 +10,7 @@
     "crawl:health": "tsx scripts/crawl-health.ts",
     "test:supabase": "tsx scripts/test-supabase-write.ts",
     "test:first-seen-at": "tsx scripts/test-first-seen-at.ts",
+    "test:digest-groups": "tsx scripts/test-digest-groups.ts",
     "send:digest": "tsx scripts/send-daily-digest.ts"
   },
   "dependencies": {

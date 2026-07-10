@@ -56,14 +56,15 @@ function orderSources(sourceIds: string[]) {
   return [...known, ...unknown];
 }
 
-function groupNotices(notices: DigestNotice[], subscribedSources: DigestSource[]): DigestGroup[] {
+export function groupNotices(notices: DigestNotice[], subscribedSources: DigestSource[]): DigestGroup[] {
   const groupsBySourceId = new Map<string, DigestGroup>();
 
   for (const source of subscribedSources) {
     groupsBySourceId.set(source.id, {
       sourceId: source.id,
       sourceName: source.name,
-      notices: []
+      notices: [],
+      hasUpdates: false
     });
   }
 
@@ -73,14 +74,19 @@ function groupNotices(notices: DigestNotice[], subscribedSources: DigestSource[]
       {
         sourceId: notice.sourceId,
         sourceName: notice.sourceName,
-        notices: []
+        notices: [],
+        hasUpdates: false
       };
 
     group.notices.push(notice);
+    group.hasUpdates = group.notices.length > 0;
     groupsBySourceId.set(notice.sourceId, group);
   }
 
-  return Array.from(groupsBySourceId.values()).filter((group) => group.notices.length > 0);
+  return Array.from(groupsBySourceId.values()).map((group) => ({
+    ...group,
+    hasUpdates: group.notices.length > 0
+  }));
 }
 
 export async function getActiveDailyDigestSubscriptions(): Promise<DigestSubscription[]> {

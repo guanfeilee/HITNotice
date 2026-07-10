@@ -26,6 +26,7 @@ export type DigestGroup = {
   sourceId: string;
   sourceName: string;
   notices: DigestNotice[];
+  hasUpdates: boolean;
 };
 
 export type DigestWindow = {
