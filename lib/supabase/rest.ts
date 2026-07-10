@@ -149,18 +149,16 @@ export async function insertNoticeRows(notices: CrawledNotice[], includeHash = t
   });
 }
 
-export async function upsertNoticeRowsByHash(notices: CrawledNotice[]) {
-  if (notices.length === 0) return;
+export async function selectExistingNoticeHashes(hashes: string[]) {
+  if (hashes.length === 0) return [];
 
-  await requestSupabaseRest<void>({
+  return requestSupabaseRest<Array<{ hash?: string }>>({
     key: "service_role",
-    method: "POST",
     path: "notices",
     query: {
-      on_conflict: "hash"
-    },
-    body: notices.map((notice) => toNoticePayload(notice, true)),
-    prefer: "resolution=merge-duplicates,return=minimal"
+      select: "hash",
+      hash: toInFilter(hashes)
+    }
   });
 }
 
@@ -175,6 +173,23 @@ export async function selectExistingNoticeUrls(urls: string[]) {
       url: toInFilter(urls)
     }
   });
+}
+
+export async function updateNoticeRowsByHash(notices: CrawledNotice[]) {
+  await Promise.all(
+    notices.map((notice) =>
+      requestSupabaseRest<void>({
+        key: "service_role",
+        method: "PATCH",
+        path: "notices",
+        query: {
+          hash: `eq.${notice.hash}`
+        },
+        body: toNoticeUpdatePayload(notice),
+        prefer: "return=minimal"
+      })
+    )
+  );
 }
 
 export async function insertCrawlRunRow(row: CrawlRunInsertRow) {
@@ -199,7 +214,7 @@ export async function selectRecentCrawlRunRows(limit = 500) {
   });
 }
 
-function toNoticePayload(notice: CrawledNotice, includeHash: boolean) {
+export function toNoticeInsertPayload(notice: CrawledNotice, includeHash: boolean) {
   return {
     title: notice.title,
     url: notice.url,
@@ -210,6 +225,21 @@ function toNoticePayload(notice: CrawledNotice, includeHash: boolean) {
     first_seen_at: notice.first_seen_at,
     ...(includeHash ? { hash: notice.hash } : {})
   };
+}
+
+export function toNoticeUpdatePayload(notice: CrawledNotice) {
+  return {
+    title: notice.title,
+    url: notice.url,
+    source_name: notice.source_name,
+    source_id: notice.source_id,
+    category: notice.category,
+    published_at: notice.published_at
+  };
+}
+
+function toNoticePayload(notice: CrawledNotice, includeHash: boolean) {
+  return toNoticeInsertPayload(notice, includeHash);
 }
 
 function toInFilter(values: string[]) {

@@ -1,5 +1,10 @@
 import type { CrawledNotice, UpsertResult } from "@/lib/crawler/types";
-import { insertNoticeRows, selectExistingNoticeUrls, upsertNoticeRowsByHash } from "@/lib/supabase/rest";
+import {
+  insertNoticeRows,
+  selectExistingNoticeHashes,
+  selectExistingNoticeUrls,
+  updateNoticeRowsByHash
+} from "@/lib/supabase/rest";
 
 const migrationHintPath = "supabase/migrations/optional_notice_crawler_fields.sql";
 
@@ -86,7 +91,15 @@ export async function upsertNotices(notices: CrawledNotice[]): Promise<UpsertRes
   }
 
   try {
-    await upsertNoticeRowsByHash(notices);
+    const hashes = Array.from(new Set(notices.map((notice) => notice.hash)));
+    const existingRows = await selectExistingNoticeHashes(hashes);
+    const existingHashes = new Set(existingRows.map((row) => row.hash).filter((hash): hash is string => Boolean(hash)));
+    const rowsToInsert = notices.filter((notice) => !existingHashes.has(notice.hash));
+    const rowsToUpdate = notices.filter((notice) => existingHashes.has(notice.hash));
+
+    await insertNoticeRows(rowsToInsert, true);
+    await updateNoticeRowsByHash(rowsToUpdate);
+
     return {
       insertedOrUpdated: notices.length,
       skipped: 0,
