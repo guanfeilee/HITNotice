@@ -6,6 +6,7 @@ type EmailLayoutParams = {
   siteUrl: string;
   unsubscribeUrl: string;
   footerText: string;
+  showUnsubscribe?: boolean;
 };
 
 export function escapeHtml(value: string) {
@@ -67,7 +68,11 @@ export function renderEmailLayout(params: EmailLayoutParams) {
             <tr>
               <td class="email-footer" bgcolor="#faf8f3" style="padding: 18px 28px 24px; border-top: 1px solid #ded8cc; color: #666666; font-size: 13px; background: #faf8f3;">
                 <p style="margin: 0;">${escapeHtml(params.footerText)}</p>
-                <p style="margin: 8px 0 0;"><a href="${escapeHtml(params.unsubscribeUrl)}" style="color: #00008b; text-decoration: none;">取消订阅</a></p>
+                ${
+                  params.showUnsubscribe === false
+                    ? ""
+                    : `<p style="margin: 8px 0 0;"><a href="${escapeHtml(params.unsubscribeUrl)}" style="color: #00008b; text-decoration: none;">取消订阅</a></p>`
+                }
               </td>
             </tr>
           </table>

@@ -8,9 +8,11 @@
     "lint": "eslint .",
     "crawl:notices": "tsx scripts/crawl-notices.ts",
     "crawl:health": "tsx scripts/crawl-health.ts",
+    "health:report": "tsx scripts/generate-health-report.ts",
     "test:supabase": "tsx scripts/test-supabase-write.ts",
     "test:first-seen-at": "tsx scripts/test-first-seen-at.ts",
     "test:digest-groups": "tsx scripts/test-digest-groups.ts",
+    "test:health-report": "tsx scripts/test-health-report.ts",
     "send:digest": "tsx scripts/send-daily-digest.ts"
   },
   "dependencies": {
