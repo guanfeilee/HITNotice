@@ -1,21 +1,12 @@
 "use client";
 
 import { academicSources, publicSources, sourceGroups } from "@/lib/sources";
-import type { Source } from "@/lib/types";
 import "./SourceSelector.css";
 
 type SourceSelectorProps = {
   selectedIds: string[];
   onChange: (sourceIds: string[]) => void;
 };
-
-const prioritizedAcademicSourceIds = ["med", "life"];
-const subscriptionAcademicSources = [
-  ...prioritizedAcademicSourceIds
-    .map((id) => academicSources.find((source) => source.id === id))
-    .filter((source): source is Source => Boolean(source)),
-  ...academicSources.filter((source) => !prioritizedAcademicSourceIds.includes(source.id))
-];
 
 function SourceGroup({
   title,
@@ -24,7 +15,7 @@ function SourceGroup({
   onToggle
 }: {
   title: string;
-  sources: Source[];
+  sources: typeof academicSources;
   selectedIds: string[];
   onToggle: (id: string) => void;
 }) {
@@ -69,7 +60,7 @@ export function SourceSelector({ selectedIds, onChange }: SourceSelectorProps) {
       />
       <SourceGroup
         title={sourceGroups.academic}
-        sources={subscriptionAcademicSources}
+        sources={academicSources}
         selectedIds={selectedIds}
         onToggle={toggle}
       />
