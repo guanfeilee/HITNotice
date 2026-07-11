@@ -1,77 +1,131 @@
-# HITNotice
+# HITnotice
 
-HITNotice is an unofficial email notification service for public notice channels at Harbin Institute of Technology.
+A campus notification aggregation and email alert service for Harbin Institute of Technology.
 
-It helps users follow selected public information sources and receive weekday evening email digests instead of manually checking multiple notice pages.
+## Overview
+
+HITnotice automatically collects publicly available campus announcements from multiple official sources and delivers personalized daily email summaries.
+
+The service focuses on:
+
+- Public information aggregation
+- Automated monitoring
+- Personalized notification
+- Email digest delivery
+
+HITnotice is designed for students and campus community members who want to follow selected official announcement sources without manually checking many separate websites.
 
 ## Features
 
-- Tracks selected public notice channels from HIT
-- Supports source-based email subscriptions
-- Sends weekday evening digest emails
-- Sends a confirmation email after the first successful subscription
-- Provides one-click unsubscribe links
-- Records crawler health status for each source
-- Runs scheduled crawler and digest jobs through GitHub Actions
-
-## Current Coverage
-
-HITNotice currently covers selected public information channels related to the Harbin campus of Harbin Institute of Technology.
-
-The supported sources may change over time. See the [Sources page](https://hitnotice.cn/sources) for the current list of channels.
+- Automated collection from official campus information sources
+- Multi-source announcement aggregation
+- Incremental notification detection
+- Daily email digest
+- Subscription-based source selection
+- Subscription confirmation email
+- One-click unsubscribe links
+- Source health monitoring
+- Failure detection and runtime status tracking
 
 ## How It Works
 
-```text
-Public notice pages
-        |
-        v
-Scheduled crawler
-        |
-        v
-Supabase database
-        |
-        v
-Digest generation
-        |
-        v
-Email delivery via Resend
+```mermaid
+flowchart LR
+    A[Official Campus Websites]
+    B[Crawler]
+    C[Supabase Database]
+    D[Digest Generator]
+    E[Email Delivery]
+    F[Health Monitoring]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    B --> F
 ```
 
-The scheduled crawler checks publicly accessible notice pages and stores new or updated notices in Supabase. HITNotice then generates digests for active subscriptions and sends them through Resend.
+The crawler checks publicly accessible official announcement pages and stores discovered announcements in Supabase. The digest generator reads active subscriptions, groups newly discovered announcements by selected sources, and sends email summaries through Resend. Health monitoring records crawler status for each source.
 
-## Tech Stack
+## System Architecture
+
+Frontend:
 
 - Next.js
+- React
+
+Backend:
+
+- Node.js
 - TypeScript
+
+Database:
+
 - Supabase
-- GitHub Actions
+
+Email:
+
 - Resend
+
+Deployment:
+
 - Vercel
+- Alibaba Cloud ECS
+- GitHub Actions for scheduled jobs
+
+## Notification Logic
+
+HITnotice tracks newly discovered announcements using `first_seen_at`.
+
+- Existing announcements are not repeatedly sent.
+- Newly discovered announcements are included in daily digest emails.
+- Digest delivery records are stored to support runtime tracking and idempotency.
+
+## Data Sources
+
+HITnotice currently covers selected public campus information sources, including:
+
+- University-level sources
+- Graduate and undergraduate related offices
+- Schools and departments
+
+The supported source list is defined in the project source registry and may be updated as official websites change.
 
 ## Deployment
 
-The production service uses:
+Required services:
 
-- Vercel for the web application
-- Supabase for data storage
-- GitHub Actions for scheduled crawling and digest jobs
-- Resend for email delivery
+- Node.js
+- Supabase
+- Resend
+- Vercel
+- Environment variables for database, email delivery, site URL, and monitoring
+
+Production deployment uses Vercel for the web application and scheduled job infrastructure for crawler and digest execution. No real credentials or production configuration values should be committed to this repository.
 
 ## Environment Variables
 
-The following environment variables are required:
+Copy `.env.example` and provide values in your local or deployment environment.
 
 ```env
+# Supabase configuration
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+
+# Email service
 RESEND_API_KEY=
 EMAIL_FROM=
+
+# Public site URL
 NEXT_PUBLIC_SITE_URL=
+
+# Admin and monitoring
+ADMIN_CHECK_TOKEN=
+HEALTH_REPORT_EMAIL=
 ```
 
-Do not commit real environment variable values to the repository.
+Do not commit real environment variable values, API keys, service-role keys, or local production configuration files.
 
 ## Local Development
 
@@ -79,6 +133,12 @@ Install dependencies:
 
 ```bash
 npm install
+```
+
+Run the development server:
+
+```bash
+npm run dev
 ```
 
 Run project checks:
@@ -100,25 +160,26 @@ Generate digests without sending emails or writing delivery records:
 npm run send:digest -- --dry-run
 ```
 
+## Version
+
+Current version:
+
+v1.0
+
 ## Privacy
 
-HITNotice only stores the email address and subscription preferences required to send email digests. It does not collect real names, student IDs, phone numbers, campus card numbers, or unified identity authentication information.
+HITnotice stores the email address and subscription preferences required to send email digests. It does not collect real names, student IDs, phone numbers, campus card numbers, or unified identity authentication information.
 
-HITNotice only aggregates publicly accessible notice pages and does not access private or login-protected content.
-
-## Author
-
-Guanfei Li<br>
-Harbin Institute of Technology<br>
-HITnotice is an independent student-built project developed by Guanfei Li.<br>
-It is not affiliated with, endorsed by, or operated by Harbin Institute of Technology.
+HITnotice only aggregates publicly accessible notice pages and does not access private or login-protected content.
 
 ## Disclaimer
 
-HITNotice is an independent student-built project and is not affiliated with, endorsed by, or operated by Harbin Institute of Technology.
+HITnotice is an independent student-developed service.
 
-All notices are sourced from publicly accessible web pages. Users should always refer to the original official pages for authoritative information.
+It is not an official platform of Harbin Institute of Technology.
+
+All official information should be verified through university websites.
 
 ## License
 
-License information has not yet been specified.
+This project is licensed under the MIT License.
