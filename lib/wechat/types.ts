@@ -13,6 +13,7 @@ export type WechatDraftInput = {
   content: string;
   author: string;
   digest: string;
+  thumbMediaId: string;
 };
 
 export type WechatDraftResponse = {
@@ -25,5 +26,11 @@ export type WechatDraftRequest = {
     content: string;
     author: string;
     digest: string;
+    thumb_media_id: string;
   }>;
+};
+
+export type WechatMaterialResponse = {
+  media_id: string;
+  url?: string;
 };

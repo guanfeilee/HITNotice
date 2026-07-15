@@ -13,7 +13,8 @@ export function buildWechatDraftRequest(input: WechatDraftInput): WechatDraftReq
         title: input.title,
         content: input.content,
         author: input.author,
-        digest: input.digest
+        digest: input.digest,
+        thumb_media_id: input.thumbMediaId
       }
     ]
   };

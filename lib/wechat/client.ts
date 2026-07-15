@@ -6,6 +6,7 @@ type WechatRequestOptions = {
   method?: "GET" | "POST";
   query?: Record<string, string>;
   body?: unknown;
+  formData?: FormData;
 };
 
 export class WechatApiError extends Error {
@@ -35,6 +36,10 @@ function getWechatError(value: unknown): WechatApiErrorResponse | null {
 }
 
 export async function requestWechatApi<T>(path: string, options: WechatRequestOptions = {}): Promise<T> {
+  if (options.body !== undefined && options.formData !== undefined) {
+    throw new WechatApiError("Wechat API request cannot contain both JSON and multipart bodies");
+  }
+
   const url = new URL(`${WECHAT_API_BASE_URL}/${path.replace(/^\/+/, "")}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     url.searchParams.set(key, value);
@@ -45,7 +50,7 @@ export async function requestWechatApi<T>(path: string, options: WechatRequestOp
     response = await fetch(url, {
       method: options.method ?? "GET",
       headers: options.body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      body: options.formData ?? (options.body === undefined ? undefined : JSON.stringify(options.body))
     });
   } catch (error) {
     throw new WechatApiError("Wechat API network request failed", undefined, { cause: error });
