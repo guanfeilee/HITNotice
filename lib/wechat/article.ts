@@ -103,7 +103,6 @@ function renderNotice(notice: DigestNotice, index: number) {
   return `
     <li style="margin:0 0 20px;padding:0 0 18px;border-bottom:1px solid #ded8cc;">
       <p style="margin:0 0 10px;color:#222222;font-size:16px;line-height:1.75;font-weight:600;word-break:break-word;">${index + 1}. ${escapeHtml(notice.title)}</p>
-      <a href="${escapeHtml(notice.url)}" style="color:#00008b;font-size:14px;line-height:1.6;text-decoration:none;">查看原文</a>
     </li>
   `;
 }
