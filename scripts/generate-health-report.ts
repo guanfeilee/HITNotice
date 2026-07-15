@@ -42,7 +42,7 @@ async function main() {
   });
 
   console.log(
-    `Health report sent: to=${to.replace(/(^.).*(@.*$)/, "$1***$2")}, status=${report.overallStatus}, sources=${report.totalSources}, failed=${report.failedSources}, digest=${report.digest.status}`
+    `Health report sent: to=${to.replace(/(^.).*(@.*$)/, "$1***$2")}, status=${report.overallStatus}, sources=${report.totalSources}, failed=${report.failedSources}, weekday=${report.digests.weekday_digest.status}, weekly=${report.digests.weekly_digest.status}`
   );
 }
 

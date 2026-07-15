@@ -1,6 +1,6 @@
 # HITnotice Email Production Guide
 
-This document records the production setup for HITnotice daily digest emails.
+This document records the production setup for HITnotice weekday and weekly digest emails.
 
 ## Resend setup
 
@@ -20,7 +20,8 @@ Do not commit the Resend API key or the real sender credentials to the repositor
 
 ## Required environment variables
 
-Vercel Production environment variables:
+The Vercel web application and Alibaba Cloud ECS scheduled jobs use the following
+production environment variables as required by their respective runtime paths:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL
@@ -37,56 +38,60 @@ Recommended production value:
 NEXT_PUBLIC_SITE_URL=https://hitnotice.cn
 ```
 
-GitHub Actions Repository Secrets:
+## Alibaba Cloud ECS cron schedule
 
-```txt
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-RESEND_API_KEY
-EMAIL_FROM
+Production scheduling is handled by cron on Alibaba Cloud ECS. HITnotice does
+not use GitHub Actions for scheduled production jobs.
+
+The current root crontab is:
+
+```cron
+45 19 * * 1-5 cd /root/HITNotice && npm run crawl:notices
+50 19 * * 1-5 cd /root/HITNotice && npm run crawl:notices
+00 20 * * 1-5 cd /root/HITNotice && npm run send:digest
+10 20 * * 1-5 cd /root/HITNotice && npm run health:report
 ```
 
-GitHub Actions Repository Variables:
+- The crawler fetches notices on weekday evenings before digest delivery.
+- The digest command runs at 20:00 Beijing time from Monday through Friday.
+- The health report runs at 20:10 Beijing time after digest execution.
+- On Monday through Thursday, the digest command processes `weekday_digest`.
+- On Friday, the same command processes both `weekday_digest` and `weekly_digest`.
 
-```txt
-NEXT_PUBLIC_SITE_URL
-```
+## Digest types and notification logic
 
-## GitHub Actions workflow
+HITnotice supports two user-selectable digest frequencies:
 
-The daily digest workflow is:
+- `weekday_digest`: sent Monday through Friday at 20:00 Beijing time, using the
+  workday digest window.
+- `weekly_digest`: sent every Friday at 20:00 Beijing time, using the weekly
+  digest window.
 
-```txt
-.github/workflows/daily-digest.yml
-```
+Notices and delivery windows follow these rules:
 
-It runs at:
+- A stable hash is used to deduplicate notices.
+- `first_seen_at` determines when a notice was newly discovered and whether it
+  belongs to a digest window.
+- `published_at` is not used to determine digest increments.
+- `email_deliveries` stores independent delivery history for each `digest_type`,
+  so weekday and weekly delivery windows do not affect each other.
 
-```txt
-UTC 04:00 -> Asia/Shanghai 12:00
-UTC 12:00 -> Asia/Shanghai 20:00
-```
+## Dry-run verification
 
-It can also be triggered manually from GitHub Actions with `workflow_dispatch`.
-
-The workflow must run on Node.js 22 or newer because `@supabase/supabase-js`
-requires a native WebSocket implementation in Node.js environments.
-
-## Local verification
-
-Run a local dry run before sending real email:
+Verify each digest type without sending email:
 
 ```sh
-npm run send:digest -- --dry-run
+npm run send:digest -- --dry-run --type=weekday_digest
+npm run send:digest -- --dry-run --type=weekly_digest
 ```
 
-Dry run behavior:
+Dry-run behavior:
 
 - reads real Supabase data
 - builds digest payloads
 - prints aggregate counts only
 - does not call Resend
+- does not send email
 - does not write `email_deliveries`
 - does not print recipient email addresses
 
@@ -109,11 +114,13 @@ Required migrations:
 ```txt
 supabase/migrations/20260708000000_email_deliveries.sql
 supabase/migrations/20260708010000_standardize_source_ids.sql
+supabase/migrations/20260715000000_add_weekday_weekly_digests.sql
 ```
 
 `email_deliveries` is required for delivery audit records and idempotency.
 The source ID standardization migration is required so `subscription_sources.source_id`
-can match `notices.source_id`.
+can match `notices.source_id`. The weekday/weekly migration updates the supported
+subscription frequencies and delivery types.
 
 Do not run migrations from the application runtime. Apply them through the
 Supabase Dashboard SQL Editor or the approved deployment process.
@@ -131,7 +138,7 @@ Suggested solution: Ensure you are running Node.js 22+
 
 Fix:
 
-- Set GitHub Actions `actions/setup-node` to `node-version: 22`.
+- Use Node.js 22 or newer for the ECS scheduled-job runtime.
 - Use a Vercel Node.js runtime that supports the current dependency stack.
 
 ### Resend testing mode

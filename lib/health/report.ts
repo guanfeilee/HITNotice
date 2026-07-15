@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getCrawlerHealth, type SourceHealth } from "@/lib/crawler/health";
 import { crawlSources } from "@/lib/crawler/sources";
 import { formatBeijingDate, formatBeijingDateTime } from "@/lib/digest/windows";
+import type { DigestType } from "@/lib/digest/types";
 import { getSupabaseAdminEnv, supabaseClientOptions } from "@/lib/supabase/config";
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -16,8 +17,10 @@ export type HealthSourceStatus = {
 };
 
 export type HealthDigestStatus = {
+  digestType: DigestType;
   status: "success" | "failed" | "no_data";
   lastDigestPeriodEnd: string | null;
+  users: number;
   recipients: number;
   successful: number;
   failed: number;
@@ -36,7 +39,7 @@ export type HealthReport = {
   noDataSources: number;
   totalNewNotices: number;
   sources: HealthSourceStatus[];
-  digest: HealthDigestStatus;
+  digests: Record<DigestType, HealthDigestStatus>;
   overallStatus: "healthy" | "degraded" | "failed";
 };
 
@@ -55,7 +58,7 @@ type HealthReportInput = {
   now?: Date;
   crawlerHealth: SourceHealth[];
   noticeCounts: Map<string, number>;
-  digest: HealthDigestStatus;
+  digests: Record<DigestType, HealthDigestStatus>;
 };
 
 function getSupabaseAdmin() {
@@ -97,25 +100,40 @@ export async function getNewNoticeCountsBySource(window = getHealthWindow()) {
   return counts;
 }
 
-export async function getDigestHealthStatus(): Promise<HealthDigestStatus> {
-  const { data, error } = await getSupabaseAdmin()
-    .from("email_deliveries")
-    .select("period_end,status,error_message")
-    .eq("digest_type", "weekday_digest")
-    .order("period_end", { ascending: false })
-    .limit(200);
+export async function getDigestHealthStatus(digestType: DigestType): Promise<HealthDigestStatus> {
+  const supabase = getSupabaseAdmin();
+  const [subscriptionsResult, deliveriesResult] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+      .eq("frequency", digestType),
+    supabase
+      .from("email_deliveries")
+      .select("period_end,status,error_message")
+      .eq("digest_type", digestType)
+      .order("period_end", { ascending: false })
+      .limit(200)
+  ]);
 
-  if (error) {
-    throw new Error(`Failed to load digest delivery health: ${error.message}`);
+  if (subscriptionsResult.error) {
+    throw new Error(`Failed to load ${digestType} subscription health: ${subscriptionsResult.error.message}`);
   }
 
-  const rows = (data as EmailDeliveryRow[] | null) ?? [];
+  if (deliveriesResult.error) {
+    throw new Error(`Failed to load ${digestType} delivery health: ${deliveriesResult.error.message}`);
+  }
+
+  const users = subscriptionsResult.count ?? 0;
+  const rows = (deliveriesResult.data as EmailDeliveryRow[] | null) ?? [];
   const latestPeriodEnd = rows[0]?.period_end ?? null;
 
   if (!latestPeriodEnd) {
     return {
+      digestType,
       status: "no_data",
       lastDigestPeriodEnd: null,
+      users,
       recipients: 0,
       successful: 0,
       failed: 0,
@@ -131,8 +149,10 @@ export async function getDigestHealthStatus(): Promise<HealthDigestStatus> {
   const lastError = latestRows.find((row) => row.error_message)?.error_message ?? null;
 
   return {
+    digestType,
     status: failed === 0 && successful > 0 ? "success" : "failed",
     lastDigestPeriodEnd: latestPeriodEnd,
+    users,
     recipients: successful + failed + skipped,
     successful,
     failed,
@@ -163,10 +183,11 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
   const failedSources = sources.filter((source) => source.status === "failed").length;
   const noDataSources = sources.filter((source) => source.status === "no_data").length;
   const totalNewNotices = sources.reduce((sum, source) => sum + source.newNotices, 0);
+  const digestStatuses = Object.values(input.digests);
   const overallStatus =
-    failedSources > 0 || input.digest.status === "failed"
+    failedSources > 0 || digestStatuses.some((digest) => digest.status === "failed")
       ? "failed"
-      : noDataSources > 0 || input.digest.status === "no_data"
+      : noDataSources > 0 || digestStatuses.some((digest) => digest.status === "no_data")
         ? "degraded"
         : "healthy";
 
@@ -181,24 +202,28 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
     noDataSources,
     totalNewNotices,
     sources,
-    digest: input.digest,
+    digests: input.digests,
     overallStatus
   };
 }
 
 export async function generateHealthReport(now = new Date()) {
   const window = getHealthWindow(now);
-  const [crawlerHealth, noticeCounts, digest] = await Promise.all([
+  const [crawlerHealth, noticeCounts, weekdayDigest, weeklyDigest] = await Promise.all([
     getCrawlerHealth(),
     getNewNoticeCountsBySource(window),
-    getDigestHealthStatus()
+    getDigestHealthStatus("weekday_digest"),
+    getDigestHealthStatus("weekly_digest")
   ]);
 
   return buildHealthReport({
     now,
     crawlerHealth,
     noticeCounts,
-    digest
+    digests: {
+      weekday_digest: weekdayDigest,
+      weekly_digest: weeklyDigest
+    }
   });
 }
 
@@ -215,6 +240,33 @@ function formatDigestStatus(status: HealthDigestStatus["status"]) {
 }
 
 export function renderHealthReportText(report: HealthReport) {
+  const digestSections = (["weekday_digest", "weekly_digest"] as const).flatMap((digestType) => {
+    const digest = report.digests[digestType];
+
+    return [
+      digestType,
+      "",
+      "Status:",
+      formatDigestStatus(digest.status),
+      "",
+      "Users:",
+      String(digest.users),
+      "",
+      "Sent:",
+      String(digest.successful),
+      "",
+      "Failed:",
+      String(digest.failed),
+      "",
+      "Latest delivery:",
+      digest.lastDigestPeriodEnd ? formatBeijingDateTime(digest.lastDigestPeriodEnd) : "No data",
+      ...(digest.lastError ? ["", "Reason:", digest.lastError] : []),
+      "",
+      "--------------------------------",
+      ""
+    ];
+  });
+
   const sections = [
     report.title,
     "",
@@ -264,19 +316,7 @@ export function renderHealthReportText(report: HealthReport) {
     "",
     "Digest Status",
     "",
-    "Last digest:",
-    formatDigestStatus(report.digest.status),
-    "",
-    "Recipients:",
-    String(report.digest.recipients),
-    "",
-    "Successful:",
-    String(report.digest.successful),
-    "",
-    "Failed:",
-    String(report.digest.failed),
-    ...(report.digest.lastError ? ["", "Reason:", report.digest.lastError] : []),
-    "",
+    ...digestSections,
     "================================",
     "",
     "Overall Status",

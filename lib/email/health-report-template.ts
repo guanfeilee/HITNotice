@@ -1,6 +1,6 @@
 import { formatBeijingDateTime } from "@/lib/digest/windows";
 import { escapeHtml, renderEmailLayout } from "@/lib/email/layout";
-import type { HealthReport, HealthSourceStatus } from "@/lib/health/report";
+import type { HealthDigestStatus, HealthReport, HealthSourceStatus } from "@/lib/health/report";
 
 function statusLabel(status: HealthSourceStatus["status"]) {
   if (status === "healthy") return "Healthy";
@@ -33,6 +33,26 @@ function renderSourceRows(report: HealthReport) {
     .join("");
 }
 
+function renderDigestStatus(digest: HealthDigestStatus) {
+  const latestDelivery = digest.lastDigestPeriodEnd
+    ? formatBeijingDateTime(digest.lastDigestPeriodEnd)
+    : "No data";
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; margin-top: 12px; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
+      <tr><td style="padding: 16px; color: #222222; font-weight: 700;">${escapeHtml(digest.digestType)}</td></tr>
+      <tr><td style="padding: 0 16px 8px; color: #222222;">Status: <strong>${escapeHtml(digest.status)}</strong></td></tr>
+      <tr><td style="padding: 0 16px 8px; color: #222222;">Users: ${digest.users} | Sent: ${digest.successful} | Failed: ${digest.failed}</td></tr>
+      <tr><td style="padding: 0 16px 16px; color: #222222;">Latest delivery: ${escapeHtml(latestDelivery)}</td></tr>
+      ${
+        digest.lastError
+          ? `<tr><td style="padding: 0 16px 16px; color: #666666; font-size: 13px; word-break: break-word;">Reason: ${escapeHtml(digest.lastError)}</td></tr>`
+          : ""
+      }
+    </table>
+  `;
+}
+
 export function renderHealthReportEmail(report: HealthReport, siteUrl: string) {
   const contentHtml = `
     <p style="margin: 0; color: #222222; font-size: 16px;">日期：${escapeHtml(report.date)}</p>
@@ -61,15 +81,8 @@ export function renderHealthReportEmail(report: HealthReport, siteUrl: string) {
     </table>
 
     <h2 style="margin: 26px 0 8px; color: #222222; font-size: 18px;">Digest Status</h2>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
-      <tr><td style="padding: 16px; color: #222222;">Last digest: <strong>${escapeHtml(report.digest.status)}</strong></td></tr>
-      <tr><td style="padding: 0 16px 16px; color: #222222;">Recipients: ${report.digest.recipients} | Successful: ${report.digest.successful} | Failed: ${report.digest.failed}</td></tr>
-      ${
-        report.digest.lastError
-          ? `<tr><td style="padding: 0 16px 16px; color: #666666; font-size: 13px; word-break: break-word;">Reason: ${escapeHtml(report.digest.lastError)}</td></tr>`
-          : ""
-      }
-    </table>
+    ${renderDigestStatus(report.digests.weekday_digest)}
+    ${renderDigestStatus(report.digests.weekly_digest)}
   `;
 
   return renderEmailLayout({

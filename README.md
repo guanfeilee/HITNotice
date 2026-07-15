@@ -4,7 +4,7 @@ A campus notification aggregation and email alert service for Harbin Institute o
 
 ## Overview
 
-HITnotice automatically collects publicly available campus announcements from multiple official sources and delivers personalized daily email summaries.
+HITnotice automatically collects publicly available campus announcements from multiple official sources and delivers personalized email summaries. Users can choose between `weekday_digest` and `weekly_digest`: weekday summaries are sent at 20:00 from Monday to Friday, while weekly summaries are sent at 20:00 every Friday.
 
 The service focuses on:
 
@@ -20,12 +20,15 @@ HITnotice is designed for students and campus community members who want to foll
 - Automated collection from official campus information sources
 - Multi-source announcement aggregation
 - Incremental notification detection
-- Daily email digest
+- User-selectable weekday and weekly email digests
 - Subscription-based source selection
 - Subscription confirmation email
 - One-click unsubscribe links
 - Source health monitoring
 - Failure detection and runtime status tracking
+- Notices are deduplicated using stable hashes
+- New notices are determined by `first_seen_at`
+- Each digest type maintains independent delivery history
 
 ## How It Works
 
@@ -71,15 +74,16 @@ Deployment:
 
 - Vercel
 - Alibaba Cloud ECS
-- GitHub Actions for scheduled jobs
+- Alibaba Cloud ECS cron jobs for scheduled tasks
 
 ## Notification Logic
 
-HITnotice tracks newly discovered announcements using `first_seen_at`.
-
-- Existing announcements are not repeatedly sent.
-- Newly discovered announcements are included in daily digest emails.
-- Digest delivery records are stored to support runtime tracking and idempotency.
+- The crawler runs through Alibaba Cloud ECS cron jobs.
+- Notices are deduplicated by a stable hash derived from the source and normalized URL.
+- `first_seen_at` is used to determine newly discovered notices.
+- `weekday_digest` runs from Monday to Friday at 20:00 Beijing time.
+- `weekly_digest` runs every Friday at 20:00 Beijing time.
+- `email_deliveries` stores delivery history separately for each digest type.
 
 ## Data Sources
 
@@ -101,7 +105,7 @@ Required services:
 - Vercel
 - Environment variables for database, email delivery, site URL, and monitoring
 
-Production deployment uses Vercel for the web application and scheduled job infrastructure for crawler and digest execution. No real credentials or production configuration values should be committed to this repository.
+Production deployment uses Vercel for the web application. Production scheduling is handled by Alibaba Cloud ECS cron jobs: `crawl:notices` runs before digest delivery, `send:digest` runs at 20:00 on weekdays, and the health report runs after digest execution. No real credentials or production configuration values should be committed to this repository.
 
 ## Environment Variables
 
@@ -157,8 +161,11 @@ npm run crawl:notices -- --dry-run
 Generate digests without sending emails or writing delivery records:
 
 ```bash
-npm run send:digest -- --dry-run
+npm run send:digest -- --dry-run --type=weekday_digest
+npm run send:digest -- --dry-run --type=weekly_digest
 ```
+
+Dry-run mode does not send email and does not write `email_deliveries` records.
 
 ## Version
 
