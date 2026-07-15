@@ -119,7 +119,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 # Email service
 RESEND_API_KEY=
-EMAIL_FROM=
+EMAIL_FROM="HITnotice <notice@hitnotice.cn>"
 
 # Public site URL
 NEXT_PUBLIC_SITE_URL=

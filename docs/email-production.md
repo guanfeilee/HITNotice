@@ -13,8 +13,8 @@ This document records the production setup for HITnotice weekday and weekly dige
    - MX record if required by the domain setup
 4. Wait until Resend marks the domain as verified.
 5. Create a production API key.
-6. Set the production sender address, for example:
-   - `notice@hitnotice.cn`
+6. Set the production sender identity:
+   - `HITnotice <notice@hitnotice.cn>`
 
 Do not commit the Resend API key or the real sender credentials to the repository.
 
@@ -28,7 +28,7 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY
-EMAIL_FROM
+EMAIL_FROM="HITnotice <notice@hitnotice.cn>"
 NEXT_PUBLIC_SITE_URL
 ```
 
