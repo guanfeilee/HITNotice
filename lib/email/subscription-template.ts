@@ -1,9 +1,12 @@
 import { escapeHtml, renderEmailLayout } from "@/lib/email/layout";
+import { getFrequencyLabel } from "@/lib/frequencies";
+import type { Frequency } from "@/lib/types";
 
 export function buildSubscriptionConfirmationEmail(params: {
   siteUrl: string;
   sourceNames: string[];
   unsubscribeToken: string;
+  frequency: Frequency;
 }) {
   const unsubscribeUrl = `${params.siteUrl}/unsubscribe?token=${encodeURIComponent(params.unsubscribeToken)}`;
   const subscribedSourceNames = params.sourceNames.join("、");
@@ -11,7 +14,7 @@ export function buildSubscriptionConfirmationEmail(params: {
   const contentHtml = `
     <p style="margin: 0; color: #222222; font-size: 16px;">感谢订阅 HITnotice。</p>
     <p style="margin: 10px 0 0; color: #222222; font-size: 16px;">当前订阅已成功创建。</p>
-    <p style="margin: 10px 0 22px; color: #666666; font-size: 14px;">HITnotice 会在工作日 20:00 发送通知摘要。</p>
+    <p style="margin: 10px 0 22px; color: #666666; font-size: 14px;">HITnotice 会在${escapeHtml(getFrequencyLabel(params.frequency))}发送通知摘要。</p>
     <div style="border-left: 4px solid #00008b; padding: 10px 14px; background: #faf8f3; color: #666666; font-size: 14px; word-break: break-word;">
       已订阅的信息渠道：${escapeHtml(subscribedSourceNames || "未选择")}
     </div>

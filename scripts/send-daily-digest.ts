@@ -1,14 +1,14 @@
 import { loadEnvConfig } from "@next/env";
 import {
-  buildDailyDigest,
+  buildDigest,
+  getActiveDigestSubscriptions,
   getDigestWindowForSubscription,
-  getActiveDailyDigestSubscriptions,
   hasSentDigest,
   recordDigestDelivery
 } from "@/lib/digest/service";
-import { getCurrentDailyDigestPeriodEnd } from "@/lib/digest/windows";
-import { sendDailyDigestEmail } from "@/lib/email/resend";
-import type { DigestWindow } from "@/lib/digest/types";
+import { getCurrentDigestPeriodEnd, getDueDigestTypes } from "@/lib/digest/windows";
+import { sendDigestEmail } from "@/lib/email/resend";
+import type { DigestType, DigestWindow } from "@/lib/digest/types";
 
 type DigestRunStats = {
   users: number;
@@ -31,6 +31,18 @@ function isDryRun() {
   return process.argv.includes("--dry-run");
 }
 
+function getRequestedDigestTypes(): DigestType[] {
+  const typeArgument = process.argv.find((argument) => argument.startsWith("--type="));
+  if (!typeArgument) return getDueDigestTypes();
+
+  const digestType = typeArgument.split("=")[1];
+  if (digestType !== "weekday_digest" && digestType !== "weekly_digest") {
+    throw new Error(`Unsupported digest type: ${digestType}`);
+  }
+
+  return [digestType];
+}
+
 function sanitizeError(error: unknown) {
   const type = error instanceof Error && error.name ? error.name : "Error";
   const message = error instanceof Error ? error.message : String(error);
@@ -46,21 +58,21 @@ function sanitizeError(error: unknown) {
   return `${type}: ${reason}`;
 }
 
-function logStats(stats: DigestRunStats) {
+function logStats(digestType: DigestType, stats: DigestRunStats) {
   console.log(
-    `Digest run summary: users=${stats.users}, notices=${stats.notices}, sent=${stats.sent}, failed=${stats.failed}, skipped=${stats.skipped}`
+    `Digest run summary: type=${digestType}, users=${stats.users}, notices=${stats.notices}, sent=${stats.sent}, failed=${stats.failed}, skipped=${stats.skipped}`
   );
 }
 
-function logDryRunStats(stats: DigestDryRunStats) {
+function logDryRunStats(digestType: DigestType, stats: DigestDryRunStats) {
   console.log(
-    `Digest dry-run summary: users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, groups=${stats.groups}, failed=${stats.failed}`
+    `Digest dry-run summary: type=${digestType}, users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, groups=${stats.groups}, failed=${stats.failed}`
   );
 }
 
-async function runDryRun() {
-  const periodEnd = getCurrentDailyDigestPeriodEnd();
-  const subscriptions = await getActiveDailyDigestSubscriptions();
+async function runDryRun(digestType: DigestType) {
+  const periodEnd = getCurrentDigestPeriodEnd();
+  const subscriptions = await getActiveDigestSubscriptions(digestType);
   const stats: DigestDryRunStats = {
     users: subscriptions.length,
     recipients: subscriptions.length,
@@ -71,8 +83,8 @@ async function runDryRun() {
 
   for (const subscription of subscriptions) {
     try {
-      const window = await getDigestWindowForSubscription(subscription.id, periodEnd);
-      const digest = await buildDailyDigest(subscription.id, window);
+      const window = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
+      const digest = await buildDigest(subscription.id, digestType, window);
       stats.notices += digest.total;
       stats.groups += digest.groups.length;
     } catch {
@@ -80,23 +92,16 @@ async function runDryRun() {
     }
   }
 
-  logDryRunStats(stats);
+  logDryRunStats(digestType, stats);
 
   if (stats.failed > 0) {
     process.exitCode = 1;
   }
 }
 
-async function main() {
-  loadEnvConfig(process.cwd());
-
-  if (isDryRun()) {
-    await runDryRun();
-    return;
-  }
-
-  const periodEnd = getCurrentDailyDigestPeriodEnd();
-  const subscriptions = await getActiveDailyDigestSubscriptions();
+async function runDigest(digestType: DigestType) {
+  const periodEnd = getCurrentDigestPeriodEnd();
+  const subscriptions = await getActiveDigestSubscriptions(digestType);
   const stats: DigestRunStats = {
     users: subscriptions.length,
     notices: 0,
@@ -111,23 +116,24 @@ async function main() {
     let digestWindow: DigestWindow | null = null;
 
     try {
-      digestWindow = await getDigestWindowForSubscription(subscription.id, periodEnd);
+      digestWindow = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
 
-      if (await hasSentDigest(subscription.id, digestWindow)) {
+      if (await hasSentDigest(subscription.id, digestType, digestWindow)) {
         stats.skipped += 1;
         continue;
       }
 
-      const digest = await buildDailyDigest(subscription.id, digestWindow);
+      const digest = await buildDigest(subscription.id, digestType, digestWindow);
       noticeCount = digest.total;
       stats.notices += digest.total;
-      await sendDailyDigestEmail({
+      await sendDigestEmail({
         to: subscription.email,
         digest,
         unsubscribeToken: subscription.unsubscribeToken
       });
       await recordDigestDelivery({
         subscriptionId: subscription.id,
+        digestType,
         window: digestWindow,
         noticeCount: digest.total,
         status: "sent"
@@ -143,6 +149,7 @@ async function main() {
       try {
         await recordDigestDelivery({
           subscriptionId: subscription.id,
+          digestType,
           window: digestWindow,
           noticeCount,
           status: "failed",
@@ -154,7 +161,7 @@ async function main() {
     }
   }
 
-  logStats(stats);
+  logStats(digestType, stats);
 
   if (stats.failedDeliveryRecords > 0) {
     console.log(`Digest failed delivery record errors=${stats.failedDeliveryRecords}`);
@@ -162,6 +169,24 @@ async function main() {
 
   if (stats.failed > 0) {
     process.exitCode = 1;
+  }
+}
+
+async function main() {
+  loadEnvConfig(process.cwd());
+
+  const digestTypes = getRequestedDigestTypes();
+  if (digestTypes.length === 0) {
+    console.log("No digest is scheduled for the current Beijing date.");
+    return;
+  }
+
+  for (const digestType of digestTypes) {
+    if (isDryRun()) {
+      await runDryRun(digestType);
+    } else {
+      await runDigest(digestType);
+    }
   }
 }
 

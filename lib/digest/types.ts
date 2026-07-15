@@ -1,4 +1,4 @@
-export type DigestType = "daily_digest";
+export type DigestType = "weekday_digest" | "weekly_digest";
 
 export type DigestSubscription = {
   id: string;
@@ -34,7 +34,7 @@ export type DigestWindow = {
   end: Date;
 };
 
-export type DailyDigest = {
+export type Digest = {
   digestType: DigestType;
   date: string;
   periodStart: string;

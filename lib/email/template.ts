@@ -1,5 +1,5 @@
 import { formatBeijingDateTime } from "@/lib/digest/windows";
-import type { DailyDigest, DigestNotice } from "@/lib/digest/types";
+import type { Digest, DigestNotice } from "@/lib/digest/types";
 import { escapeHtml, renderEmailLayout } from "@/lib/email/layout";
 
 function renderNotice(notice: DigestNotice) {
@@ -12,12 +12,16 @@ function renderNotice(notice: DigestNotice) {
   `;
 }
 
-function renderGroups(digest: DailyDigest) {
+function getDigestLabel(digest: Digest) {
+  return digest.digestType === "weekly_digest" ? "每周通知摘要" : "工作日通知摘要";
+}
+
+function renderGroups(digest: Digest) {
   if (digest.groups.length === 0) {
     return `
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
         <tr>
-          <td style="padding: 18px; color: #666666;">过去24小时暂无新的通知更新。</td>
+          <td style="padding: 18px; color: #666666;">本次统计周期内暂无新的通知更新。</td>
         </tr>
       </table>
     `;
@@ -43,7 +47,7 @@ function renderGroups(digest: DailyDigest) {
                   : `
                     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
                       <tr>
-                        <td style="padding: 14px 16px; color: #666666; font-size: 14px;">过去24小时内无新增通知</td>
+                        <td style="padding: 14px 16px; color: #666666; font-size: 14px;">本次统计周期内无新增通知</td>
                       </tr>
                     </table>
                   `
@@ -56,9 +60,10 @@ function renderGroups(digest: DailyDigest) {
     .join("");
 }
 
-export function renderDailyDigestEmail(digest: DailyDigest, siteUrl: string, unsubscribeToken: string) {
+export function renderDigestEmail(digest: Digest, siteUrl: string, unsubscribeToken: string) {
   const unsubscribeUrl = `${siteUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const subscribedSourceNames = digest.sources.map((source) => source.name).join("、");
+  const digestLabel = getDigestLabel(digest);
 
   const contentHtml = `
     <p style="margin: 0; color: #222222; font-size: 16px;">日期：${escapeHtml(digest.date)}</p>
@@ -71,8 +76,8 @@ export function renderDailyDigestEmail(digest: DailyDigest, siteUrl: string, uns
   `;
 
   return renderEmailLayout({
-    documentTitle: "HITnotice 每日通知摘要",
-    heading: "HITnotice 每日通知摘要",
+    documentTitle: `HITnotice ${digestLabel}`,
+    heading: `HITnotice ${digestLabel}`,
     previewText: `${digest.date} 新增 ${digest.total} 条通知`,
     contentHtml,
     siteUrl,

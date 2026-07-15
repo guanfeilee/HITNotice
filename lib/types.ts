@@ -14,7 +14,7 @@ export type Source = {
   parserType: SourceParserType;
 };
 
-export type Frequency = "high_frequency" | "daily_digest" | "weekly_digest";
+export type Frequency = "weekday_digest" | "weekly_digest";
 
 export type SubscriptionDraft = {
   email: string;

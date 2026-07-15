@@ -3,11 +3,12 @@ import { sources } from "@/lib/sources";
 import { getSupabaseAdminEnv, supabaseClientOptions } from "@/lib/supabase/config";
 import { formatBeijingDate, getDigestWindowFromLastSuccess } from "@/lib/digest/windows";
 import type {
-  DailyDigest,
+  Digest,
   DigestGroup,
   DigestNotice,
   DigestSource,
   DigestSubscription,
+  DigestType,
   DigestWindow
 } from "@/lib/digest/types";
 
@@ -89,12 +90,12 @@ export function groupNotices(notices: DigestNotice[], subscribedSources: DigestS
   }));
 }
 
-export async function getActiveDailyDigestSubscriptions(): Promise<DigestSubscription[]> {
+export async function getActiveDigestSubscriptions(digestType: DigestType): Promise<DigestSubscription[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("subscriptions")
     .select("id,email,frequency,unsubscribe_token")
     .eq("status", "active")
-    .eq("frequency", "daily_digest")
+    .eq("frequency", digestType)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -104,7 +105,7 @@ export async function getActiveDailyDigestSubscriptions(): Promise<DigestSubscri
   return (data ?? []).map((row) => ({
     id: String(row.id),
     email: String(row.email),
-    frequency: "daily_digest",
+    frequency: digestType,
     unsubscribeToken: String(row.unsubscribe_token ?? "")
   }));
 }
@@ -154,7 +155,11 @@ export async function getNoticesForSources(sourceIds: string[], window: DigestWi
   });
 }
 
-export async function buildDailyDigest(subscriptionId: string, window: DigestWindow): Promise<DailyDigest> {
+export async function buildDigest(
+  subscriptionId: string,
+  digestType: DigestType,
+  window: DigestWindow
+): Promise<Digest> {
   const subscribedSources = await getSubscriptionSources(subscriptionId);
   const notices = await getNoticesForSources(
     subscribedSources.map((source) => source.id),
@@ -162,7 +167,7 @@ export async function buildDailyDigest(subscriptionId: string, window: DigestWin
   );
 
   return {
-    digestType: "daily_digest",
+    digestType,
     date: formatBeijingDate(window.end),
     periodStart: window.start.toISOString(),
     periodEnd: window.end.toISOString(),
@@ -172,12 +177,16 @@ export async function buildDailyDigest(subscriptionId: string, window: DigestWin
   };
 }
 
-export async function getDigestWindowForSubscription(subscriptionId: string, periodEnd: Date): Promise<DigestWindow> {
+export async function getDigestWindowForSubscription(
+  subscriptionId: string,
+  digestType: DigestType,
+  periodEnd: Date
+): Promise<DigestWindow> {
   const { data, error } = await getSupabaseAdmin()
     .from("email_deliveries")
     .select("period_end")
     .eq("subscription_id", subscriptionId)
-    .eq("digest_type", "daily_digest")
+    .eq("digest_type", digestType)
     .eq("status", "sent")
     .lt("period_end", periodEnd.toISOString())
     .order("period_end", { ascending: false })
@@ -188,15 +197,15 @@ export async function getDigestWindowForSubscription(subscriptionId: string, per
     throw new Error(`Failed to load previous digest delivery: ${error.message}`);
   }
 
-  return getDigestWindowFromLastSuccess(periodEnd, data?.period_end);
+  return getDigestWindowFromLastSuccess(digestType, periodEnd, data?.period_end);
 }
 
-export async function hasSentDigest(subscriptionId: string, window: DigestWindow) {
+export async function hasSentDigest(subscriptionId: string, digestType: DigestType, window: DigestWindow) {
   const { data, error } = await getSupabaseAdmin()
     .from("email_deliveries")
     .select("id")
     .eq("subscription_id", subscriptionId)
-    .eq("digest_type", "daily_digest")
+    .eq("digest_type", digestType)
     .eq("period_end", window.end.toISOString())
     .eq("status", "sent")
     .maybeSingle();
@@ -210,6 +219,7 @@ export async function hasSentDigest(subscriptionId: string, window: DigestWindow
 
 export async function recordDigestDelivery(params: {
   subscriptionId: string;
+  digestType: DigestType;
   window: DigestWindow;
   noticeCount: number;
   status: "sent" | "failed" | "skipped";
@@ -218,7 +228,7 @@ export async function recordDigestDelivery(params: {
   const { error } = await getSupabaseAdmin().from("email_deliveries").upsert(
     {
       subscription_id: params.subscriptionId,
-      digest_type: "daily_digest",
+      digest_type: params.digestType,
       period_start: params.window.start.toISOString(),
       period_end: params.window.end.toISOString(),
       notice_count: params.noticeCount,

@@ -1,8 +1,9 @@
 import { getEmailEnv } from "@/lib/email/config";
 import { renderHealthReportEmail } from "@/lib/email/health-report-template";
-import { renderDailyDigestEmail } from "@/lib/email/template";
+import { renderDigestEmail } from "@/lib/email/template";
 import { buildSubscriptionConfirmationEmail } from "@/lib/email/subscription-template";
-import type { DailyDigest } from "@/lib/digest/types";
+import type { Digest } from "@/lib/digest/types";
+import type { Frequency } from "@/lib/types";
 import type { HealthReport } from "@/lib/health/report";
 
 type ResendErrorBody = {
@@ -27,9 +28,13 @@ function formatResendError(response: Response, body: ResendErrorBody | null) {
   return `${type}: ${reason} (HTTP ${response.status})`;
 }
 
-export async function sendDailyDigestEmail(params: {
+function getDigestLabel(digest: Digest) {
+  return digest.digestType === "weekly_digest" ? "每周通知摘要" : "工作日通知摘要";
+}
+
+export async function sendDigestEmail(params: {
   to: string;
-  digest: DailyDigest;
+  digest: Digest;
   unsubscribeToken: string;
 }) {
   const env = getEmailEnv();
@@ -46,8 +51,8 @@ export async function sendDailyDigestEmail(params: {
     body: JSON.stringify({
       from: env.emailFrom,
       to: [params.to],
-      subject: `HITnotice 每日通知摘要｜${params.digest.date}｜${params.digest.total} 条新增`,
-      html: renderDailyDigestEmail(params.digest, env.siteUrl, params.unsubscribeToken)
+      subject: `HITnotice ${getDigestLabel(params.digest)}｜${params.digest.date}｜${params.digest.total} 条新增`,
+      html: renderDigestEmail(params.digest, env.siteUrl, params.unsubscribeToken)
     })
   });
 
@@ -104,6 +109,7 @@ export async function sendSubscriptionConfirmationEmail(params: {
   to: string;
   sourceNames: string[];
   unsubscribeToken: string;
+  frequency: Frequency;
 }) {
   const env = getEmailEnv();
   if (!env.ok) {
@@ -123,7 +129,8 @@ export async function sendSubscriptionConfirmationEmail(params: {
       html: buildSubscriptionConfirmationEmail({
         siteUrl: env.siteUrl,
         sourceNames: params.sourceNames,
-        unsubscribeToken: params.unsubscribeToken
+        unsubscribeToken: params.unsubscribeToken,
+        frequency: params.frequency
       })
     })
   });

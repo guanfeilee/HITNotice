@@ -1,7 +1,7 @@
-import type { DigestWindow } from "@/lib/digest/types";
+import type { DigestType, DigestWindow } from "@/lib/digest/types";
 
 const beijingTimeZone = "Asia/Shanghai";
-const dailyDigestHour = 20;
+const digestHour = 20;
 const dayMs = 24 * 60 * 60 * 1000;
 
 function getBeijingParts(date: Date) {
@@ -55,25 +55,42 @@ export function formatBeijingDateTime(value: string | Date) {
   }).format(date);
 }
 
-export function getCurrentDailyDigestPeriodEnd(now = new Date()) {
-  const parts = getBeijingParts(now);
-  return beijingWallTimeToDate(parts.year, parts.month, parts.day, dailyDigestHour);
+function getBeijingDayOfWeek(date: Date) {
+  const parts = getBeijingParts(date);
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
 }
 
-export function getDefaultDailyDigestWindow(now = new Date()): DigestWindow {
-  const end = getCurrentDailyDigestPeriodEnd(now);
+export function getDueDigestTypes(now = new Date()): DigestType[] {
+  const dayOfWeek = getBeijingDayOfWeek(now);
+
+  if (dayOfWeek === 0 || dayOfWeek === 6) return [];
+  if (dayOfWeek === 5) return ["weekday_digest", "weekly_digest"];
+  return ["weekday_digest"];
+}
+
+export function getCurrentDigestPeriodEnd(now = new Date()) {
+  const parts = getBeijingParts(now);
+  return beijingWallTimeToDate(parts.year, parts.month, parts.day, digestHour);
+}
+
+export function getDefaultDigestWindow(digestType: DigestType, periodEnd: Date): DigestWindow {
+  const dayOfWeek = getBeijingDayOfWeek(periodEnd);
+  const daysToSubtract = digestType === "weekly_digest" ? 7 : dayOfWeek === 1 ? 3 : 1;
 
   return {
-    start: new Date(end.getTime() - dayMs),
-    end
+    start: new Date(periodEnd.getTime() - daysToSubtract * dayMs),
+    end: periodEnd
   };
 }
 
-export function getDigestWindowFromLastSuccess(periodEnd: Date, lastSuccessfulPeriodEnd?: string | null): DigestWindow {
+export function getDigestWindowFromLastSuccess(
+  digestType: DigestType,
+  periodEnd: Date,
+  lastSuccessfulPeriodEnd?: string | null
+): DigestWindow {
   const parsedStart = lastSuccessfulPeriodEnd ? new Date(lastSuccessfulPeriodEnd) : null;
-  const start = parsedStart && !Number.isNaN(parsedStart.getTime())
-    ? parsedStart
-    : new Date(periodEnd.getTime() - dayMs);
+  const defaultWindow = getDefaultDigestWindow(digestType, periodEnd);
+  const start = parsedStart && !Number.isNaN(parsedStart.getTime()) ? parsedStart : defaultWindow.start;
 
   return {
     start,

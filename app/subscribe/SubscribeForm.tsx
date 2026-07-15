@@ -3,12 +3,13 @@
 import { FormEvent, useState } from "react";
 import { FrequencySelector } from "@/components/FrequencySelector";
 import { SourceSelector } from "@/components/SourceSelector";
+import { getFrequencyLabel } from "@/lib/frequencies";
 import type { SubscriptionDraft } from "@/lib/types";
 
 const initialDraft: SubscriptionDraft = {
   email: "",
   sourceIds: [],
-  frequency: "daily_digest"
+  frequency: "weekday_digest"
 };
 
 export function SubscribeForm() {
@@ -104,7 +105,7 @@ export function SubscribeForm() {
       {error ? <div className="notice" role="alert">{error}</div> : null}
       {saved ? (
         <div className="success" role="status">
-          订阅成功。我们会在工作日晚上 20:00 发送通知摘要。
+          订阅成功。我们会在{draft.frequency ? getFrequencyLabel(draft.frequency) : "设定时间"}发送通知摘要。
         </div>
       ) : null}
 

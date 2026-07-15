@@ -101,7 +101,7 @@ export async function getDigestHealthStatus(): Promise<HealthDigestStatus> {
   const { data, error } = await getSupabaseAdmin()
     .from("email_deliveries")
     .select("period_end,status,error_message")
-    .eq("digest_type", "daily_digest")
+    .eq("digest_type", "weekday_digest")
     .order("period_end", { ascending: false })
     .limit(200);
 

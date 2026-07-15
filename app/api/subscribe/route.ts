@@ -179,7 +179,8 @@ export async function POST(request: Request) {
       await sendSubscriptionConfirmationEmail({
         to: email,
         sourceNames: getSourceNames(sourceIds),
-        unsubscribeToken
+        unsubscribeToken,
+        frequency
       });
     } catch {
       console.log("Subscription confirmation email failed");

@@ -44,7 +44,7 @@ create table if not exists public.subscriptions (
   updated_at timestamptz not null default now(),
   constraint subscriptions_email_not_blank check (length(trim(email)) > 0),
   constraint subscriptions_frequency_check check (
-    frequency in ('high_frequency', 'daily_digest', 'weekly_digest')
+    frequency in ('weekday_digest', 'weekly_digest')
   ),
   constraint subscriptions_status_check check (
     status in ('active', 'unsubscribed')
