@@ -12,6 +12,7 @@
     "test:supabase": "tsx scripts/test-supabase-write.ts",
     "test:first-seen-at": "tsx scripts/test-first-seen-at.ts",
     "test:digest-groups": "tsx scripts/test-digest-groups.ts",
+    "test:wechat": "tsx scripts/test-wechat.ts",
     "test:health-report": "tsx scripts/test-health-report.ts",
     "send:digest": "tsx scripts/send-digests.ts"
   },
