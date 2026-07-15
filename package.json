@@ -17,6 +17,7 @@
     "send:digest": "tsx scripts/send-digests.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@supabase/supabase-js": "2.110.0",
     "cheerio": "^1.2.0",
     "iconv-lite": "^0.7.3",
