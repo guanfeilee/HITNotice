@@ -14,7 +14,9 @@
     "test:digest-groups": "tsx scripts/test-digest-groups.ts",
     "test:wechat": "tsx scripts/test-wechat.ts",
     "test:health-report": "tsx scripts/test-health-report.ts",
+    "test:digest-reliability": "tsx scripts/test-digest-reliability.ts",
     "send:digest": "tsx scripts/send-digests.ts",
+    "digest:retry": "tsx scripts/retry-digest.ts",
     "wechat:draft": "tsx scripts/create-wechat-draft.ts"
   },
   "dependencies": {
@@ -24,7 +26,8 @@
     "iconv-lite": "^0.7.3",
     "next": "^16.2.10",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "svix": "^1.98.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

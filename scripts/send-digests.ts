@@ -1,19 +1,22 @@
 import { loadEnvConfig } from "@next/env";
 import {
   buildDigest,
+  claimDigestDelivery,
   getActiveDigestSubscriptions,
   getDigestWindowForSubscription,
-  hasSentDigest,
-  recordDigestDelivery
+  getLatestPermanentDeliveryBlock,
+  recordDigestDeliveryAccepted,
+  recordDigestDeliveryFailure
 } from "@/lib/digest/service";
 import { getCurrentDigestPeriodEnd, getDueDigestTypes } from "@/lib/digest/windows";
 import { sendDigestEmail } from "@/lib/email/resend";
+import { executeDigestDelivery } from "@/lib/digest/send";
 import type { DigestType, DigestWindow } from "@/lib/digest/types";
 
 type DigestRunStats = {
   users: number;
   notices: number;
-  sent: number;
+  accepted: number;
   failed: number;
   skipped: number;
   failedDeliveryRecords: number;
@@ -60,7 +63,7 @@ function sanitizeError(error: unknown) {
 
 function logStats(digestType: DigestType, stats: DigestRunStats) {
   console.log(
-    `Digest run summary: type=${digestType}, users=${stats.users}, notices=${stats.notices}, sent=${stats.sent}, failed=${stats.failed}, skipped=${stats.skipped}`
+    `Digest run summary: type=${digestType}, users=${stats.users}, notices=${stats.notices}, accepted=${stats.accepted}, failed=${stats.failed}, skipped=${stats.skipped}`
   );
 }
 
@@ -105,59 +108,47 @@ async function runDigest(digestType: DigestType) {
   const stats: DigestRunStats = {
     users: subscriptions.length,
     notices: 0,
-    sent: 0,
+    accepted: 0,
     failed: 0,
     skipped: 0,
     failedDeliveryRecords: 0
   };
 
   for (const subscription of subscriptions) {
-    let noticeCount = 0;
     let digestWindow: DigestWindow | null = null;
 
     try {
       digestWindow = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
 
-      if (await hasSentDigest(subscription.id, digestType, digestWindow)) {
+      const permanentBlock = await getLatestPermanentDeliveryBlock(subscription.id);
+      if (permanentBlock) {
         stats.skipped += 1;
         continue;
       }
 
       const digest = await buildDigest(subscription.id, digestType, digestWindow);
-      noticeCount = digest.total;
       stats.notices += digest.total;
-      await sendDigestEmail({
-        to: subscription.email,
-        digest,
-        unsubscribeToken: subscription.unsubscribeToken
+      const result = await executeDigestDelivery({ subscription, digest, window: digestWindow }, {
+        claim: claimDigestDelivery,
+        send: ({ subscription: current, digest: currentDigest, deliveryId, idempotencyKey }) =>
+          sendDigestEmail({
+            to: current.email,
+            digest: currentDigest,
+            unsubscribeToken: current.unsubscribeToken,
+            subscriptionId: current.id,
+            deliveryId,
+            idempotencyKey
+          }),
+        recordAccepted: recordDigestDeliveryAccepted,
+        recordFailed: recordDigestDeliveryFailure
       });
-      await recordDigestDelivery({
-        subscriptionId: subscription.id,
-        digestType,
-        window: digestWindow,
-        noticeCount: digest.total,
-        status: "sent"
-      });
-      stats.sent += 1;
+      if (result.status === "accepted") stats.accepted += 1;
+      if (result.status === "skipped") stats.skipped += 1;
+      if (result.status === "failed") stats.failed += 1;
     } catch (error) {
       stats.failed += 1;
-      if (!digestWindow) {
-        stats.failedDeliveryRecords += 1;
-        continue;
-      }
-
-      try {
-        await recordDigestDelivery({
-          subscriptionId: subscription.id,
-          digestType,
-          window: digestWindow,
-          noticeCount,
-          status: "failed",
-          errorMessage: sanitizeError(error)
-        });
-      } catch {
-        stats.failedDeliveryRecords += 1;
-      }
+      stats.failedDeliveryRecords += 1;
+      console.error(`Digest processing failed: subscription=${subscription.id} ${sanitizeError(error)}`);
     }
   }
 

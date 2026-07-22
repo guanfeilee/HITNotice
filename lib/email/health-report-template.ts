@@ -42,7 +42,7 @@ function renderDigestStatus(digest: HealthDigestStatus) {
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; margin-top: 12px; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
       <tr><td style="padding: 16px; color: #222222; font-weight: 700;">${escapeHtml(digest.digestType)}</td></tr>
       <tr><td style="padding: 0 16px 8px; color: #222222;">Status: <strong>${escapeHtml(digest.status)}</strong></td></tr>
-      <tr><td style="padding: 0 16px 8px; color: #222222;">Users: ${digest.users} | Sent: ${digest.successful} | Failed: ${digest.failed}</td></tr>
+      <tr><td style="padding: 0 16px 8px; color: #222222;">Users: ${digest.users} | Accepted: ${digest.accepted} | Delivered: ${digest.delivered} | Suppressed: ${digest.suppressed} | Failed: ${digest.failed}</td></tr>
       <tr><td style="padding: 0 16px 16px; color: #222222;">Latest delivery: ${escapeHtml(latestDelivery)}</td></tr>
       ${
         digest.lastError

@@ -1,108 +1,80 @@
+import { createHash } from "node:crypto";
 import { getEmailEnv } from "@/lib/email/config";
 import { renderHealthReportEmail } from "@/lib/email/health-report-template";
+import { sendResendRequestWithRetry, type ResendRequestOptions } from "@/lib/email/resend-retry";
 import { renderDigestEmail } from "@/lib/email/template";
 import { buildSubscriptionConfirmationEmail } from "@/lib/email/subscription-template";
 import type { Digest } from "@/lib/digest/types";
 import type { Frequency } from "@/lib/types";
 import type { HealthReport } from "@/lib/health/report";
 
-type ResendErrorBody = {
-  message?: string;
-  name?: string;
-  statusCode?: number;
-};
+type RequestOverrides = Pick<
+  ResendRequestOptions,
+  "fetchImpl" | "sleep" | "random" | "logger" | "timeoutMs" | "maxAttempts"
+>;
 
-function sanitizeResendReason(value: string) {
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
-    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 240);
-}
-
-function formatResendError(response: Response, body: ResendErrorBody | null) {
-  const type = body?.name ?? "Resend API error";
-  const reason = sanitizeResendReason(body?.message ?? response.statusText ?? "Request failed");
-
-  return `${type}: ${reason} (HTTP ${response.status})`;
+function stableKey(prefix: string, values: string[]) {
+  return `${prefix}/${createHash("sha256").update(values.join(":"), "utf8").digest("hex")}`;
 }
 
 function getDigestLabel(digest: Digest) {
   return digest.digestType === "weekly_digest" ? "每周通知摘要" : "工作日通知摘要";
 }
 
+function requireEmailEnv() {
+  const env = getEmailEnv();
+  if (!env.ok) throw new Error(env.error);
+  return env;
+}
+
 export async function sendDigestEmail(params: {
   to: string;
   digest: Digest;
   unsubscribeToken: string;
+  subscriptionId: string;
+  deliveryId: string;
+  idempotencyKey: string;
+  requestOverrides?: RequestOverrides;
 }) {
-  const env = getEmailEnv();
-  if (!env.ok) {
-    throw new Error(env.error);
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.resendApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
+  const env = requireEmailEnv();
+  return sendResendRequestWithRetry({
+    apiKey: env.resendApiKey,
+    idempotencyKey: params.idempotencyKey,
+    stage: "resend_submit",
+    subscriptionId: params.subscriptionId,
+    deliveryId: params.deliveryId,
+    payload: {
       from: env.emailFrom,
       to: [params.to],
       subject: `HITnotice ${getDigestLabel(params.digest)}｜${params.digest.date}｜${params.digest.total} 条新增`,
-      html: renderDigestEmail(params.digest, env.siteUrl, params.unsubscribeToken)
-    })
+      html: renderDigestEmail(params.digest, env.siteUrl, params.unsubscribeToken),
+      tags: [
+        { name: "delivery_id", value: params.deliveryId },
+        { name: "digest_type", value: params.digest.digestType }
+      ]
+    },
+    ...params.requestOverrides
   });
-
-  if (!response.ok) {
-    let errorBody: ResendErrorBody | null = null;
-
-    try {
-      errorBody = (await response.json()) as ResendErrorBody;
-    } catch {
-      errorBody = null;
-    }
-
-    throw new Error(formatResendError(response, errorBody));
-  }
 }
 
 export async function sendHealthReportEmail(params: {
   to: string;
   report: HealthReport;
+  requestOverrides?: RequestOverrides;
 }) {
-  const env = getEmailEnv();
-  if (!env.ok) {
-    throw new Error(env.error);
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.resendApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
+  const env = requireEmailEnv();
+  return sendResendRequestWithRetry({
+    apiKey: env.resendApiKey,
+    idempotencyKey: stableKey("health-report", [params.report.periodEnd, params.report.overallStatus, params.to]),
+    stage: "resend_health_report",
+    payload: {
       from: env.emailFrom,
       to: [params.to],
       subject: `HITnotice Daily Health Report｜${params.report.date}｜${params.report.overallStatus}`,
       html: renderHealthReportEmail(params.report, env.siteUrl)
-    })
+    },
+    ...params.requestOverrides
   });
-
-  if (!response.ok) {
-    let errorBody: ResendErrorBody | null = null;
-
-    try {
-      errorBody = (await response.json()) as ResendErrorBody;
-    } catch {
-      errorBody = null;
-    }
-
-    throw new Error(formatResendError(response, errorBody));
-  }
 }
 
 export async function sendSubscriptionConfirmationEmail(params: {
@@ -110,19 +82,14 @@ export async function sendSubscriptionConfirmationEmail(params: {
   sourceNames: string[];
   unsubscribeToken: string;
   frequency: Frequency;
+  requestOverrides?: RequestOverrides;
 }) {
-  const env = getEmailEnv();
-  if (!env.ok) {
-    throw new Error(env.error);
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.resendApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
+  const env = requireEmailEnv();
+  return sendResendRequestWithRetry({
+    apiKey: env.resendApiKey,
+    idempotencyKey: stableKey("subscription-confirmation", [params.to, params.frequency, ...params.sourceNames]),
+    stage: "resend_subscription_confirmation",
+    payload: {
       from: env.emailFrom,
       to: [params.to],
       subject: "HITnotice 订阅成功确认",
@@ -132,18 +99,7 @@ export async function sendSubscriptionConfirmationEmail(params: {
         unsubscribeToken: params.unsubscribeToken,
         frequency: params.frequency
       })
-    })
+    },
+    ...params.requestOverrides
   });
-
-  if (!response.ok) {
-    let errorBody: ResendErrorBody | null = null;
-
-    try {
-      errorBody = (await response.json()) as ResendErrorBody;
-    } catch {
-      errorBody = null;
-    }
-
-    throw new Error(formatResendError(response, errorBody));
-  }
 }

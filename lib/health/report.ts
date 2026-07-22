@@ -18,12 +18,18 @@ export type HealthSourceStatus = {
 
 export type HealthDigestStatus = {
   digestType: DigestType;
-  status: "success" | "failed" | "no_data";
+  status: "success" | "partial_success" | "failed" | "no_data";
   lastDigestPeriodEnd: string | null;
   users: number;
   recipients: number;
+  accepted: number;
+  delivered: number;
+  suppressed: number;
+  bounced: number;
+  complained: number;
   successful: number;
   failed: number;
+  pending: number;
   skipped: number;
   lastError: string | null;
 };
@@ -50,7 +56,18 @@ type NoticeCountRow = {
 
 type EmailDeliveryRow = {
   period_end: string;
-  status: "pending" | "sent" | "failed" | "skipped";
+  status:
+    | "pending"
+    | "accepted"
+    | "sent"
+    | "delivered"
+    | "suppressed"
+    | "bounced"
+    | "complained"
+    | "failed"
+    | "skipped";
+  accepted_at: string | null;
+  sent_at: string | null;
   error_message: string | null;
 };
 
@@ -102,7 +119,7 @@ export async function getNewNoticeCountsBySource(window = getHealthWindow()) {
 
 export async function getDigestHealthStatus(digestType: DigestType): Promise<HealthDigestStatus> {
   const supabase = getSupabaseAdmin();
-  const [subscriptionsResult, deliveriesResult] = await Promise.all([
+  const [subscriptionsResult, latestDeliveryResult] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("*", { count: "exact", head: true })
@@ -110,23 +127,23 @@ export async function getDigestHealthStatus(digestType: DigestType): Promise<Hea
       .eq("frequency", digestType),
     supabase
       .from("email_deliveries")
-      .select("period_end,status,error_message")
+      .select("period_end")
       .eq("digest_type", digestType)
       .order("period_end", { ascending: false })
-      .limit(200)
+      .limit(1)
+      .maybeSingle()
   ]);
 
   if (subscriptionsResult.error) {
     throw new Error(`Failed to load ${digestType} subscription health: ${subscriptionsResult.error.message}`);
   }
 
-  if (deliveriesResult.error) {
-    throw new Error(`Failed to load ${digestType} delivery health: ${deliveriesResult.error.message}`);
+  if (latestDeliveryResult.error) {
+    throw new Error(`Failed to load ${digestType} delivery health: ${latestDeliveryResult.error.message}`);
   }
 
   const users = subscriptionsResult.count ?? 0;
-  const rows = (deliveriesResult.data as EmailDeliveryRow[] | null) ?? [];
-  const latestPeriodEnd = rows[0]?.period_end ?? null;
+  const latestPeriodEnd = latestDeliveryResult.data?.period_end ?? null;
 
   if (!latestPeriodEnd) {
     return {
@@ -135,29 +152,73 @@ export async function getDigestHealthStatus(digestType: DigestType): Promise<Hea
       lastDigestPeriodEnd: null,
       users,
       recipients: 0,
+      accepted: 0,
+      delivered: 0,
+      suppressed: 0,
+      bounced: 0,
+      complained: 0,
       successful: 0,
       failed: 0,
+      pending: 0,
       skipped: 0,
       lastError: "No digest delivery recorded"
     };
   }
 
-  const latestRows = rows.filter((row) => row.period_end === latestPeriodEnd);
-  const successful = latestRows.filter((row) => row.status === "sent").length;
-  const failed = latestRows.filter((row) => row.status === "failed").length;
-  const skipped = latestRows.filter((row) => row.status === "skipped").length;
+  const { data: latestRowsData, error: latestRowsError } = await supabase
+    .from("email_deliveries")
+    .select("period_end,status,accepted_at,sent_at,error_message")
+    .eq("digest_type", digestType)
+    .eq("period_end", latestPeriodEnd);
+  if (latestRowsError) {
+    throw new Error(`Failed to load ${digestType} latest delivery batch: ${latestRowsError.message}`);
+  }
+  const latestRows = (latestRowsData as EmailDeliveryRow[] | null) ?? [];
+  const metrics = calculateDigestHealthMetrics(latestRows);
   const lastError = latestRows.find((row) => row.error_message)?.error_message ?? null;
 
   return {
     digestType,
-    status: failed === 0 && successful > 0 ? "success" : "failed",
     lastDigestPeriodEnd: latestPeriodEnd,
     users,
-    recipients: successful + failed + skipped,
+    ...metrics,
+    lastError
+  };
+}
+
+export function calculateDigestHealthMetrics(rows: EmailDeliveryRow[]) {
+  const delivered = rows.filter((row) => row.status === "delivered").length;
+  const suppressed = rows.filter((row) => row.status === "suppressed").length;
+  const bounced = rows.filter((row) => row.status === "bounced").length;
+  const complained = rows.filter((row) => row.status === "complained").length;
+  const failed = rows.filter((row) => row.status === "failed").length;
+  const pending = rows.filter((row) => row.status === "pending").length;
+  const skipped = rows.filter((row) => row.status === "skipped").length;
+  const accepted = rows.filter(
+    (row) =>
+      Boolean(row.accepted_at || row.sent_at) ||
+      ["accepted", "sent", "delivered", "suppressed", "bounced", "complained"].includes(row.status)
+  ).length;
+  const adverse = suppressed + bounced + complained + failed + pending;
+  const successful = Math.max(0, accepted - suppressed - bounced - complained);
+  let status: HealthDigestStatus["status"] = "no_data";
+  if (pending > 0) status = "failed";
+  else if (adverse === 0 && successful > 0) status = "success";
+  else if (successful > 0 && adverse > 0) status = "partial_success";
+  else if (adverse > 0) status = "failed";
+
+  return {
+    status,
+    recipients: rows.length,
+    accepted,
+    delivered,
+    suppressed,
+    bounced,
+    complained,
     successful,
     failed,
-    skipped,
-    lastError
+    pending,
+    skipped
   };
 }
 
@@ -187,7 +248,7 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
   const overallStatus =
     failedSources > 0 || digestStatuses.some((digest) => digest.status === "failed")
       ? "failed"
-      : noDataSources > 0 || digestStatuses.some((digest) => digest.status === "no_data")
+      : noDataSources > 0 || digestStatuses.some((digest) => ["partial_success", "no_data"].includes(digest.status))
         ? "degraded"
         : "healthy";
 
@@ -235,6 +296,7 @@ function formatSourceStatus(status: HealthSourceStatus["status"]) {
 
 function formatDigestStatus(status: HealthDigestStatus["status"]) {
   if (status === "success") return "Success";
+  if (status === "partial_success") return "Partial success";
   if (status === "failed") return "Failed";
   return "No data";
 }
@@ -252,8 +314,14 @@ export function renderHealthReportText(report: HealthReport) {
       "Users:",
       String(digest.users),
       "",
-      "Sent:",
-      String(digest.successful),
+      "Accepted:",
+      String(digest.accepted),
+      "",
+      "Delivered:",
+      String(digest.delivered),
+      "",
+      "Suppressed:",
+      String(digest.suppressed),
       "",
       "Failed:",
       String(digest.failed),

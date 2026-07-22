@@ -45,19 +45,31 @@ const report = buildHealthReport({
       lastDigestPeriodEnd: "2026-07-11T12:00:00.000Z",
       users: 4,
       recipients: 4,
+      accepted: 4,
+      delivered: 4,
+      suppressed: 0,
+      bounced: 0,
+      complained: 0,
       successful: 4,
       failed: 0,
+      pending: 0,
       skipped: 0,
       lastError: null
     },
     weekly_digest: {
       digestType: "weekly_digest",
-      status: "failed",
+      status: "partial_success",
       lastDigestPeriodEnd: "2026-07-10T12:00:00.000Z",
       users: 2,
       recipients: 2,
+      accepted: 1,
+      delivered: 1,
+      suppressed: 0,
+      bounced: 0,
+      complained: 0,
       successful: 1,
       failed: 1,
+      pending: 0,
       skipped: 0,
       lastError: "Weekly delivery failed"
     }
@@ -82,12 +94,12 @@ assert.match(text, new RegExp(`${sourceA.name}[\\s\\S]*Status:\\nHealthy[\\s\\S]
 assert.match(text, new RegExp(`${sourceB.name}[\\s\\S]*Status:\\nHealthy[\\s\\S]*New notices:\\n0`));
 assert.match(text, new RegExp(`${sourceC.name}[\\s\\S]*Status:\\nFailed[\\s\\S]*Reason:\\nHTTP 403`));
 
-assert.match(text, /weekday_digest[\s\S]*Users:\n4[\s\S]*Sent:\n4[\s\S]*Failed:\n0/);
-assert.match(text, /weekly_digest[\s\S]*Users:\n2[\s\S]*Sent:\n1[\s\S]*Failed:\n1/);
+assert.match(text, /weekday_digest[\s\S]*Users:\n4[\s\S]*Accepted:\n4[\s\S]*Delivered:\n4[\s\S]*Failed:\n0/);
+assert.match(text, /weekly_digest[\s\S]*Users:\n2[\s\S]*Accepted:\n1[\s\S]*Delivered:\n1[\s\S]*Failed:\n1/);
 
 const html = renderHealthReportEmail(report, "https://hitnotice.cn");
 assert.match(html, /weekday_digest/);
 assert.match(html, /weekly_digest/);
-assert.match(html, /Users: 2 \| Sent: 1 \| Failed: 1/);
+assert.match(html, /Users: 2 \| Accepted: 1 \| Delivered: 1 \| Suppressed: 0 \| Failed: 1/);
 
 console.log("health report test passed");
