@@ -27,6 +27,7 @@ type DigestDryRunStats = {
   recipients: number;
   notices: number;
   groups: number;
+  skipped: number;
   failed: number;
 };
 
@@ -61,6 +62,28 @@ function sanitizeError(error: unknown) {
   return `${type}: ${reason}`;
 }
 
+function maskEmail(email: string) {
+  const separator = email.lastIndexOf("@");
+  if (separator <= 0) return "[redacted-email]";
+
+  const localPart = email.slice(0, separator);
+  const domain = email.slice(separator + 1);
+  return `${localPart.slice(0, 1)}***@${domain}`;
+}
+
+function formatDigestContext(
+  subscription: { id: string; email: string; frequency: DigestType },
+  window: DigestWindow | null
+) {
+  return [
+    `email=${maskEmail(subscription.email)}`,
+    `subscription=${subscription.id}`,
+    `frequency=${subscription.frequency}`,
+    `period_start=${window?.start.toISOString() ?? "unresolved"}`,
+    `period_end=${window?.end.toISOString() ?? "unresolved"}`
+  ].join(", ");
+}
+
 function logStats(digestType: DigestType, stats: DigestRunStats) {
   console.log(
     `Digest run summary: type=${digestType}, users=${stats.users}, notices=${stats.notices}, accepted=${stats.accepted}, failed=${stats.failed}, skipped=${stats.skipped}`
@@ -69,7 +92,7 @@ function logStats(digestType: DigestType, stats: DigestRunStats) {
 
 function logDryRunStats(digestType: DigestType, stats: DigestDryRunStats) {
   console.log(
-    `Digest dry-run summary: type=${digestType}, users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, groups=${stats.groups}, failed=${stats.failed}`
+    `Digest dry-run summary: type=${digestType}, users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, groups=${stats.groups}, skipped=${stats.skipped}, failed=${stats.failed}`
   );
 }
 
@@ -78,20 +101,39 @@ async function runDryRun(digestType: DigestType) {
   const subscriptions = await getActiveDigestSubscriptions(digestType);
   const stats: DigestDryRunStats = {
     users: subscriptions.length,
-    recipients: subscriptions.length,
+    recipients: 0,
     notices: 0,
     groups: 0,
+    skipped: 0,
     failed: 0
   };
 
   for (const subscription of subscriptions) {
+    let digestWindow: DigestWindow | null = null;
+
     try {
-      const window = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
-      const digest = await buildDigest(subscription.id, digestType, window);
+      digestWindow = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
+      const digest = await buildDigest(subscription.id, digestType, digestWindow);
       stats.notices += digest.total;
       stats.groups += digest.groups.length;
-    } catch {
+
+      if (digest.total === 0) {
+        stats.skipped += 1;
+        console.log(
+          `Digest dry-run: ${formatDigestContext(subscription, digestWindow)}, notices=0, groups=${digest.groups.length}, action=skipped, reason=no_matching_notices`
+        );
+        continue;
+      }
+
+      stats.recipients += 1;
+      console.log(
+        `Digest dry-run: ${formatDigestContext(subscription, digestWindow)}, notices=${digest.total}, groups=${digest.groups.length}, action=prepare`
+      );
+    } catch (error) {
       stats.failed += 1;
+      console.error(
+        `Digest dry-run failed: ${formatDigestContext(subscription, digestWindow)} ${sanitizeError(error)}`
+      );
     }
   }
 
@@ -123,6 +165,9 @@ async function runDigest(digestType: DigestType) {
       const permanentBlock = await getLatestPermanentDeliveryBlock(subscription.id);
       if (permanentBlock) {
         stats.skipped += 1;
+        console.log(
+          `Digest skipped: ${formatDigestContext(subscription, digestWindow)}, reason=delivery_${permanentBlock.status}`
+        );
         continue;
       }
 
@@ -143,12 +188,19 @@ async function runDigest(digestType: DigestType) {
         recordFailed: recordDigestDeliveryFailure
       });
       if (result.status === "accepted") stats.accepted += 1;
-      if (result.status === "skipped") stats.skipped += 1;
+      if (result.status === "skipped") {
+        stats.skipped += 1;
+        console.log(
+          `Digest skipped: ${formatDigestContext(subscription, digestWindow)}, reason=${result.reason}`
+        );
+      }
       if (result.status === "failed") stats.failed += 1;
     } catch (error) {
       stats.failed += 1;
       stats.failedDeliveryRecords += 1;
-      console.error(`Digest processing failed: subscription=${subscription.id} ${sanitizeError(error)}`);
+      console.error(
+        `Digest processing failed: ${formatDigestContext(subscription, digestWindow)} ${sanitizeError(error)}`
+      );
     }
   }
 

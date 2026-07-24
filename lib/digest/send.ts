@@ -50,6 +50,10 @@ export async function executeDigestDelivery(
   },
   dependencies: DigestSendDependencies
 ) {
+  if (params.digest.total === 0) {
+    return { status: "skipped", reason: "no_matching_notices" } as const;
+  }
+
   const claim = await dependencies.claim({
     subscriptionId: params.subscription.id,
     digestType: params.digest.digestType,

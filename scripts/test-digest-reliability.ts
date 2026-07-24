@@ -106,6 +106,57 @@ const digest: Digest = {
   groups: []
 };
 
+for (const digestType of ["weekday_digest", "weekly_digest"] as const) {
+  let claimCalls = 0;
+  let sendCalls = 0;
+  let acceptedRecordCalls = 0;
+  let failedRecordCalls = 0;
+  const emptyDigest: Digest = {
+    ...digest,
+    digestType,
+    total: 0,
+    sources: [{ id: "subscribed-source", name: "Subscribed Source" }],
+    groups: [
+      {
+        sourceId: "subscribed-source",
+        sourceName: "Subscribed Source",
+        notices: [],
+        hasUpdates: false
+      }
+    ]
+  };
+
+  const emptyResult = await executeDigestDelivery(
+    {
+      subscription: { ...subscription, frequency: digestType },
+      digest: emptyDigest,
+      window
+    },
+    {
+      claim: async () => {
+        claimCalls += 1;
+        throw new Error("empty digest must not create a delivery claim");
+      },
+      send: async () => {
+        sendCalls += 1;
+        throw new Error("empty digest must not call Resend");
+      },
+      recordAccepted: async () => {
+        acceptedRecordCalls += 1;
+      },
+      recordFailed: async () => {
+        failedRecordCalls += 1;
+      }
+    }
+  );
+
+  assert.deepEqual(emptyResult, { status: "skipped", reason: "no_matching_notices" });
+  assert.equal(claimCalls, 0);
+  assert.equal(sendCalls, 0);
+  assert.equal(acceptedRecordCalls, 0);
+  assert.equal(failedRecordCalls, 0);
+}
+
 let acceptedEmailId: string | null = null;
 const acceptedResult = await executeDigestDelivery(
   { subscription, digest, window },
