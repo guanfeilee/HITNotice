@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { generateHealthReport, renderHealthReportText } from "@/lib/health/report";
+import { executeHealthReportCommand } from "@/lib/health/command";
 import { sendHealthReportEmail } from "@/lib/email/resend";
 
 const defaultHealthReportEmail = "leegfei@163.com";
@@ -28,21 +29,26 @@ function sanitizeError(error: unknown) {
 async function main() {
   loadEnvConfig(process.cwd());
 
-  const report = await generateHealthReport();
+  const result = await executeHealthReportCommand(
+    { dryRun: isDryRun() },
+    {
+      generate: () => generateHealthReport(),
+      renderText: renderHealthReportText,
+      send: async (report) => {
+        const to = getHealthReportEmail();
+        await sendHealthReportEmail({
+          to,
+          report
+        });
+      },
+      log: console.log
+    }
+  );
 
-  if (isDryRun()) {
-    console.log(renderHealthReportText(report));
-    return;
-  }
-
+  if (!result.sent) return;
   const to = getHealthReportEmail();
-  await sendHealthReportEmail({
-    to,
-    report
-  });
-
   console.log(
-    `Health report sent: to=${to.replace(/(^.).*(@.*$)/, "$1***$2")}, status=${report.overallStatus}, sources=${report.totalSources}, failed=${report.failedSources}, weekday=${report.digests.weekday_digest.status}, weekly=${report.digests.weekly_digest.status}`
+    `Health report sent: to=${to.replace(/(^.).*(@.*$)/, "$1***$2")}, status=${result.report.overallStatus}, sources=${result.report.totalSources}, failed=${result.report.failedSources}, weekday=${result.report.digests.weekday_digest.status}, weekly=${result.report.digests.weekly_digest.status}`
   );
 }
 

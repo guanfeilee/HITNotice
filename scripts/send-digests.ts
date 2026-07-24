@@ -8,19 +8,13 @@ import {
   recordDigestDeliveryAccepted,
   recordDigestDeliveryFailure
 } from "@/lib/digest/service";
+import { claimScheduledDigestRun, finishDigestRun, type DigestRunStats } from "@/lib/digest/runs";
+import { executeScheduledDigestRun, sanitizeDigestRunError } from "@/lib/digest/scheduled-run";
+import { executeDigestCommand } from "@/lib/digest/command";
 import { getCurrentDigestPeriodEnd, getDueDigestTypes } from "@/lib/digest/windows";
 import { sendDigestEmail } from "@/lib/email/resend";
 import { executeDigestDelivery } from "@/lib/digest/send";
 import type { DigestType, DigestWindow } from "@/lib/digest/types";
-
-type DigestRunStats = {
-  users: number;
-  notices: number;
-  accepted: number;
-  failed: number;
-  skipped: number;
-  failedDeliveryRecords: number;
-};
 
 type DigestDryRunStats = {
   users: number;
@@ -47,21 +41,6 @@ function getRequestedDigestTypes(): DigestType[] {
   return [digestType];
 }
 
-function sanitizeError(error: unknown) {
-  const type = error instanceof Error && error.name ? error.name : "Error";
-  const message = error instanceof Error ? error.message : String(error);
-
-  const reason = message
-    .replace(/(Bearer\s+)[A-Za-z0-9._-]+/g, "$1[redacted]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
-    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 240);
-
-  return `${type}: ${reason}`;
-}
-
 function maskEmail(email: string) {
   const separator = email.lastIndexOf("@");
   if (separator <= 0) return "[redacted-email]";
@@ -86,7 +65,7 @@ function formatDigestContext(
 
 function logStats(digestType: DigestType, stats: DigestRunStats) {
   console.log(
-    `Digest run summary: type=${digestType}, users=${stats.users}, notices=${stats.notices}, accepted=${stats.accepted}, failed=${stats.failed}, skipped=${stats.skipped}`
+    `Digest run summary: type=${digestType}, users=${stats.users}, recipients=${stats.recipients}, notices=${stats.notices}, accepted=${stats.accepted}, skipped=${stats.skipped}, blocked=${stats.blocked}, failed=${stats.failed}`
   );
 }
 
@@ -132,7 +111,7 @@ async function runDryRun(digestType: DigestType) {
     } catch (error) {
       stats.failed += 1;
       console.error(
-        `Digest dry-run failed: ${formatDigestContext(subscription, digestWindow)} ${sanitizeError(error)}`
+        `Digest dry-run failed: ${formatDigestContext(subscription, digestWindow)} ${sanitizeDigestRunError(error)}`
       );
     }
   }
@@ -146,71 +125,67 @@ async function runDryRun(digestType: DigestType) {
 
 async function runDigest(digestType: DigestType) {
   const periodEnd = getCurrentDigestPeriodEnd();
-  const subscriptions = await getActiveDigestSubscriptions(digestType);
-  const stats: DigestRunStats = {
-    users: subscriptions.length,
-    notices: 0,
-    accepted: 0,
-    failed: 0,
-    skipped: 0,
-    failedDeliveryRecords: 0
-  };
-
-  for (const subscription of subscriptions) {
-    let digestWindow: DigestWindow | null = null;
-
-    try {
-      digestWindow = await getDigestWindowForSubscription(subscription.id, digestType, periodEnd);
-
-      const permanentBlock = await getLatestPermanentDeliveryBlock(subscription.id);
-      if (permanentBlock) {
-        stats.skipped += 1;
+  const result = await executeScheduledDigestRun(
+    { digestType, periodEnd },
+    {
+      claimRun: claimScheduledDigestRun,
+      loadSubscriptions: getActiveDigestSubscriptions,
+      getSubscriptionWindow: getDigestWindowForSubscription,
+      buildDigest,
+      isPermanentlyBlocked: async (subscriptionId) =>
+        Boolean(await getLatestPermanentDeliveryBlock(subscriptionId)),
+      deliver: ({ subscription, digest, window }) =>
+        executeDigestDelivery(
+          { subscription, digest, window },
+          {
+            claim: claimDigestDelivery,
+            send: ({ subscription: current, digest: currentDigest, deliveryId, idempotencyKey }) =>
+              sendDigestEmail({
+                to: current.email,
+                digest: currentDigest,
+                unsubscribeToken: current.unsubscribeToken,
+                subscriptionId: current.id,
+                deliveryId,
+                idempotencyKey
+              }),
+            recordAccepted: recordDigestDeliveryAccepted,
+            recordFailed: recordDigestDeliveryFailure
+          }
+        ),
+      finishRun: finishDigestRun
+    },
+    {
+      onNoMatchingNotices: ({ subscription, digest, window }) =>
         console.log(
-          `Digest skipped: ${formatDigestContext(subscription, digestWindow)}, reason=delivery_${permanentBlock.status}`
-        );
-        continue;
-      }
-
-      const digest = await buildDigest(subscription.id, digestType, digestWindow);
-      stats.notices += digest.total;
-      const result = await executeDigestDelivery({ subscription, digest, window: digestWindow }, {
-        claim: claimDigestDelivery,
-        send: ({ subscription: current, digest: currentDigest, deliveryId, idempotencyKey }) =>
-          sendDigestEmail({
-            to: current.email,
-            digest: currentDigest,
-            unsubscribeToken: current.unsubscribeToken,
-            subscriptionId: current.id,
-            deliveryId,
-            idempotencyKey
-          }),
-        recordAccepted: recordDigestDeliveryAccepted,
-        recordFailed: recordDigestDeliveryFailure
-      });
-      if (result.status === "accepted") stats.accepted += 1;
-      if (result.status === "skipped") {
-        stats.skipped += 1;
+          `Digest skipped: ${formatDigestContext(subscription, window)}, notices=${digest.total}, reason=no_matching_notices`
+        ),
+      onPermanentBlock: ({ subscription, window }) =>
         console.log(
-          `Digest skipped: ${formatDigestContext(subscription, digestWindow)}, reason=${result.reason}`
-        );
-      }
-      if (result.status === "failed") stats.failed += 1;
-    } catch (error) {
-      stats.failed += 1;
-      stats.failedDeliveryRecords += 1;
-      console.error(
-        `Digest processing failed: ${formatDigestContext(subscription, digestWindow)} ${sanitizeError(error)}`
-      );
+          `Digest blocked: ${formatDigestContext(subscription, window)}, reason=permanent_delivery_block`
+        ),
+      onDeliveryResult: ({ subscription, window, result: deliveryResult }) => {
+        if (deliveryResult.status === "skipped") {
+          console.log(
+            `Digest delivery skipped: ${formatDigestContext(subscription, window)}, reason=${deliveryResult.reason}`
+          );
+        }
+      },
+      onUserError: ({ subscription, window, error }) =>
+        console.error(
+          `Digest processing failed: ${formatDigestContext(subscription, window)} ${sanitizeDigestRunError(error)}`
+        )
     }
+  );
+
+  if (result.status === "duplicate") {
+    console.log(
+      `Digest scheduled run skipped: type=${digestType}, period_start=${result.run.periodStart}, period_end=${result.run.periodEnd}, reason=scheduled_run_already_exists, run_status=${result.run.status}`
+    );
+    return;
   }
 
-  logStats(digestType, stats);
-
-  if (stats.failedDeliveryRecords > 0) {
-    console.log(`Digest failed delivery record errors=${stats.failedDeliveryRecords}`);
-  }
-
-  if (stats.failed > 0) {
+  logStats(digestType, result.stats);
+  if (result.stats.failed > 0) {
     process.exitCode = 1;
   }
 }
@@ -224,16 +199,19 @@ async function main() {
     return;
   }
 
-  for (const digestType of digestTypes) {
-    if (isDryRun()) {
-      await runDryRun(digestType);
-    } else {
-      await runDigest(digestType);
+  await executeDigestCommand(
+    {
+      digestTypes,
+      dryRun: isDryRun()
+    },
+    {
+      runDryRun,
+      runScheduled: runDigest
     }
-  }
+  );
 }
 
 main().catch((error) => {
-  console.error(`Digest run failed: ${sanitizeError(error)}`);
+  console.error(`Digest run failed: ${sanitizeDigestRunError(error)}`);
   process.exitCode = 1;
 });

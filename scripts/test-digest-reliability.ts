@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { Webhook } from "svix";
 import { POST as handleResendWebhook } from "@/app/api/webhooks/resend/route";
-import { calculateDigestHealthMetrics } from "@/lib/health/report";
+import { calculateDeliveryHealthMetrics } from "@/lib/health/report";
 import { createDigestIdempotencyKey, evaluateRetryEligibility } from "@/lib/digest/delivery";
+import { executeScheduledDigestRun } from "@/lib/digest/scheduled-run";
+import { executeDigestCommand } from "@/lib/digest/command";
 import { executeDigestDelivery } from "@/lib/digest/send";
+import { getCompletedDigestRunStatus, type DigestRunRecord } from "@/lib/digest/runs";
 import { parseDigestRetryArgs } from "@/lib/digest/retry";
 import { sendResendRequestWithRetry } from "@/lib/email/resend-retry";
 import type { Digest, DigestSubscription, DigestWindow } from "@/lib/digest/types";
@@ -261,16 +264,231 @@ assert.deepEqual(
   { allowed: false, reason: "delivery_suppressed" }
 );
 
-const partialMetrics = calculateDigestHealthMetrics([
-  { period_end: window.end.toISOString(), status: "delivered", accepted_at: window.end.toISOString(), sent_at: null, error_message: null },
-  { period_end: window.end.toISOString(), status: "suppressed", accepted_at: window.end.toISOString(), sent_at: null, error_message: null },
-  { period_end: window.end.toISOString(), status: "failed", accepted_at: null, sent_at: null, error_message: "failed" }
+const deliveryCreatedAt = window.start.toISOString();
+const partialMetrics = calculateDeliveryHealthMetrics([
+  {
+    status: "delivered",
+    accepted_at: window.end.toISOString(),
+    sent_at: null,
+    error_message: null,
+    processing_started_at: deliveryCreatedAt,
+    created_at: deliveryCreatedAt
+  },
+  {
+    status: "suppressed",
+    accepted_at: window.end.toISOString(),
+    sent_at: null,
+    error_message: null,
+    processing_started_at: deliveryCreatedAt,
+    created_at: deliveryCreatedAt
+  },
+  {
+    status: "failed",
+    accepted_at: null,
+    sent_at: null,
+    error_message: "failed",
+    processing_started_at: deliveryCreatedAt,
+    created_at: deliveryCreatedAt
+  }
 ]);
-assert.equal(partialMetrics.status, "partial_success");
 assert.equal(partialMetrics.accepted, 2);
 assert.equal(partialMetrics.delivered, 1);
 assert.equal(partialMetrics.suppressed, 1);
-assert.equal(partialMetrics.failed, 1);
+assert.equal(partialMetrics.deliveryFailed, 1);
+
+const scheduledRun: DigestRunRecord = {
+  id: "run-1",
+  digestType: "weekday_digest",
+  runKind: "scheduled",
+  periodStart: window.start.toISOString(),
+  periodEnd: window.end.toISOString(),
+  startedAt: window.start.toISOString(),
+  finishedAt: null,
+  status: "running",
+  users: 0,
+  recipients: 0,
+  skipped: 0,
+  blocked: 0,
+  failed: 0,
+  errorMessage: null,
+  metadata: {}
+};
+
+function scheduledSubscriptions(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    ...subscription,
+    id: `subscription-${index + 1}`
+  }));
+}
+
+function digestFor(currentSubscription: DigestSubscription, total: number): Digest {
+  return {
+    ...digest,
+    digestType: currentSubscription.frequency,
+    total,
+    groups: []
+  };
+}
+
+let allSkippedFinishStatus: string | null = null;
+let allSkippedDeliveryCalls = 0;
+const allSkippedResult = await executeScheduledDigestRun(
+  { digestType: "weekday_digest", periodEnd: window.end },
+  {
+    claimRun: async ({ digestType, window: claimedWindow }) => {
+      assert.equal(digestType, "weekday_digest");
+      assert.equal(claimedWindow.start.toISOString(), window.start.toISOString());
+      return { claimed: true, run: scheduledRun };
+    },
+    loadSubscriptions: async () => scheduledSubscriptions(57),
+    getSubscriptionWindow: async () => window,
+    buildDigest: async () => digestFor(subscription, 0),
+    isPermanentlyBlocked: async () => false,
+    deliver: async () => {
+      allSkippedDeliveryCalls += 1;
+      return { status: "accepted" };
+    },
+    finishRun: async (value) => {
+      allSkippedFinishStatus = value.status;
+    }
+  }
+);
+assert.equal(allSkippedResult.status, "completed");
+assert.equal(allSkippedResult.runStatus, "success");
+assert.equal(allSkippedResult.stats.users, 57);
+assert.equal(allSkippedResult.stats.recipients, 0);
+assert.equal(allSkippedResult.stats.skipped, 57);
+assert.equal(allSkippedResult.stats.failed, 0);
+assert.equal(allSkippedDeliveryCalls, 0);
+assert.equal(allSkippedFinishStatus, "success");
+
+const mixedResult = await executeScheduledDigestRun(
+  { digestType: "weekday_digest", periodEnd: window.end },
+  {
+    claimRun: async () => ({ claimed: true, run: scheduledRun }),
+    loadSubscriptions: async () => scheduledSubscriptions(57),
+    getSubscriptionWindow: async () => window,
+    buildDigest: async (subscriptionId) =>
+      digestFor(subscription, Number(subscriptionId.split("-").at(-1)) <= 10 ? 1 : 0),
+    isPermanentlyBlocked: async () => false,
+    deliver: async () => ({ status: "accepted" }),
+    finishRun: async () => undefined
+  }
+);
+assert.equal(mixedResult.status, "completed");
+assert.equal(mixedResult.runStatus, "success");
+assert.equal(mixedResult.stats.users, 57);
+assert.equal(mixedResult.stats.recipients, 10);
+assert.equal(mixedResult.stats.skipped, 47);
+assert.equal(mixedResult.stats.failed, 0);
+
+const partialRunResult = await executeScheduledDigestRun(
+  { digestType: "weekday_digest", periodEnd: window.end },
+  {
+    claimRun: async () => ({ claimed: true, run: scheduledRun }),
+    loadSubscriptions: async () => scheduledSubscriptions(10),
+    getSubscriptionWindow: async () => window,
+    buildDigest: async (subscriptionId) => {
+      if (["subscription-9", "subscription-10"].includes(subscriptionId)) {
+        throw new Error("notice query failed");
+      }
+      return digestFor(subscription, 1);
+    },
+    isPermanentlyBlocked: async () => false,
+    deliver: async () => ({ status: "accepted" }),
+    finishRun: async () => undefined
+  }
+);
+assert.equal(partialRunResult.status, "completed");
+assert.equal(partialRunResult.runStatus, "partial_success");
+assert.equal(partialRunResult.stats.recipients, 8);
+assert.equal(partialRunResult.stats.failed, 2);
+
+let fatalFinishStatus: string | null = null;
+await assert.rejects(
+  executeScheduledDigestRun(
+    { digestType: "weekday_digest", periodEnd: window.end },
+    {
+      claimRun: async () => ({ claimed: true, run: scheduledRun }),
+      loadSubscriptions: async () => {
+        throw new Error("subscription query failed");
+      },
+      getSubscriptionWindow: async () => window,
+      buildDigest: async () => digest,
+      isPermanentlyBlocked: async () => false,
+      deliver: async () => ({ status: "accepted" }),
+      finishRun: async (value) => {
+        fatalFinishStatus = value.status;
+      }
+    }
+  ),
+  /subscription query failed/
+);
+assert.equal(fatalFinishStatus, "failed");
+
+let duplicateLoadedSubscriptions = false;
+const duplicateRunResult = await executeScheduledDigestRun(
+  { digestType: "weekday_digest", periodEnd: window.end },
+  {
+    claimRun: async () => ({ claimed: false, run: scheduledRun }),
+    loadSubscriptions: async () => {
+      duplicateLoadedSubscriptions = true;
+      return [];
+    },
+    getSubscriptionWindow: async () => window,
+    buildDigest: async () => digest,
+    isPermanentlyBlocked: async () => false,
+    deliver: async () => ({ status: "accepted" }),
+    finishRun: async () => undefined
+  }
+);
+assert.equal(duplicateRunResult.status, "duplicate");
+assert.equal(duplicateLoadedSubscriptions, false);
+assert.equal(
+  getCompletedDigestRunStatus({
+    users: 57,
+    recipients: 0,
+    skipped: 57,
+    blocked: 0,
+    failed: 0,
+    notices: 0,
+    accepted: 0,
+    deliverySkipped: 0
+  }),
+  "success"
+);
+assert.equal(
+  getCompletedDigestRunStatus({
+    users: 10,
+    recipients: 10,
+    skipped: 0,
+    blocked: 0,
+    failed: 10,
+    notices: 10,
+    accepted: 0,
+    deliverySkipped: 0
+  }),
+  "failed"
+);
+
+let commandDryRunCalls = 0;
+let commandScheduledCalls = 0;
+await executeDigestCommand(
+  {
+    digestTypes: ["weekday_digest", "weekly_digest"],
+    dryRun: true
+  },
+  {
+    runDryRun: async () => {
+      commandDryRunCalls += 1;
+    },
+    runScheduled: async () => {
+      commandScheduledCalls += 1;
+    }
+  }
+);
+assert.equal(commandDryRunCalls, 2);
+assert.equal(commandScheduledCalls, 0);
 
 const webhookSecret = `whsec_${Buffer.from("digest-reliability-webhook-secret").toString("base64")}`;
 const webhookPayload = JSON.stringify({
