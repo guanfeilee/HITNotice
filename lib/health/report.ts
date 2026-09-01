@@ -298,7 +298,7 @@ export function buildDigestHealthStatus(params: {
     if (run.users > 0 && run.recipients === 0 && run.skipped === run.users) {
       reason = "No matching notices for all active subscriptions";
     } else if (!webhookTracking && run.recipients > 0) {
-      reason = "Final delivery tracking unavailable because the Resend webhook is not configured";
+      reason = "Resend webhook tracking is intentionally disabled; accepted status reflects the Resend API response";
     }
   }
 
@@ -340,7 +340,7 @@ export async function getDigestHealthStatus(
   now = new Date()
 ): Promise<HealthDigestStatus> {
   const schedule = getDigestSchedule(digestType, now);
-  const webhookTracking = Boolean(process.env.RESEND_WEBHOOK_SECRET);
+  const webhookTracking = process.env.RESEND_WEBHOOK_ENABLED === "true";
   if (!schedule.scheduled || !schedule.window) {
     return buildDigestHealthStatus({
       digestType,
@@ -481,7 +481,7 @@ export function getDigestDisplayFields(digest: HealthDigestStatus) {
     ["Pending", String(digest.pending)],
     ["Stale pending", String(digest.stalePending)],
     ["Delivery failed", String(digest.deliveryFailed)],
-    ["Webhook tracking", digest.webhookTracking ? "Enabled" : "Not configured"],
+    ["Webhook tracking", digest.webhookTracking ? "Enabled" : "Disabled by design"],
     ["Reason", digest.reason ?? "None"],
     ["Last error", digest.lastError ?? "None"]
   ] as const;

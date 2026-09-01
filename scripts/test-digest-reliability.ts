@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { Webhook } from "svix";
 import { POST as handleResendWebhook } from "@/app/api/webhooks/resend/route";
 import { calculateDeliveryHealthMetrics } from "@/lib/health/report";
 import { createDigestIdempotencyKey, evaluateRetryEligibility } from "@/lib/digest/delivery";
@@ -490,42 +489,17 @@ await executeDigestCommand(
 assert.equal(commandDryRunCalls, 2);
 assert.equal(commandScheduledCalls, 0);
 
-const webhookSecret = `whsec_${Buffer.from("digest-reliability-webhook-secret").toString("base64")}`;
-const webhookPayload = JSON.stringify({
-  type: "contact.created",
-  created_at: "2026-07-22T12:00:00.000Z",
-  data: { id: "contact-1" }
+const retiredWebhookResponse = await handleResendWebhook(
+  new Request("https://hitnotice.cn/api/webhooks/resend", {
+    method: "POST",
+    body: JSON.stringify({ type: "email.delivered" })
+  })
+);
+assert.equal(retiredWebhookResponse.status, 410);
+assert.deepEqual(await retiredWebhookResponse.json(), {
+  ok: false,
+  error: "Resend webhook processing has been retired."
 });
-const webhookId = "msg_digest_reliability_test";
-const webhookTimestamp = new Date();
-const webhookSignature = new Webhook(webhookSecret).sign(webhookId, webhookTimestamp, webhookPayload);
-process.env.RESEND_WEBHOOK_SECRET = webhookSecret;
-const verifiedWebhookResponse = await handleResendWebhook(
-  new Request("https://hitnotice.cn/api/webhooks/resend", {
-    method: "POST",
-    body: webhookPayload,
-    headers: {
-      "svix-id": webhookId,
-      "svix-timestamp": String(Math.floor(webhookTimestamp.getTime() / 1000)),
-      "svix-signature": webhookSignature
-    }
-  })
-);
-assert.equal(verifiedWebhookResponse.status, 200);
-assert.deepEqual(await verifiedWebhookResponse.json(), { ok: true, ignored: true });
-
-const invalidWebhookResponse = await handleResendWebhook(
-  new Request("https://hitnotice.cn/api/webhooks/resend", {
-    method: "POST",
-    body: webhookPayload,
-    headers: {
-      "svix-id": webhookId,
-      "svix-timestamp": String(Math.floor(webhookTimestamp.getTime() / 1000)),
-      "svix-signature": "v1,invalid"
-    }
-  })
-);
-assert.equal(invalidWebhookResponse.status, 400);
 
 console.log("digest reliability tests passed");
 }

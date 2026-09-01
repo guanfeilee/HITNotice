@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { sourceRegistry } from "@/lib/source-registry";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requestInternalApi } from "@/lib/internal-api/client";
 import "./notices-check.css";
 
 export const metadata: Metadata = {
@@ -52,29 +52,19 @@ export default async function NoticesCheckPage({ searchParams }: NoticesCheckPag
     .map((source) => source.name);
   const requestedSource = typeof params.source === "string" ? params.source : "";
   const selectedSource = sourceNames.includes(requestedSource) ? requestedSource : "";
-  const { client, error: clientError } = createSupabaseAdminClient();
-
-  if (!client) {
-    throw new Error(clientError ?? "Unable to connect to the notice database.");
-  }
-
-  let query = client
-    .from("notices")
-    .select("title,url,source_name")
-    .order("first_seen_at", { ascending: false })
-    .limit(200);
-
-  if (selectedSource) {
-    query = query.eq("source_name", selectedSource);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
+  const internalPath = selectedSource
+    ? `/internal/admin/notices?source=${encodeURIComponent(selectedSource)}`
+    : "/internal/admin/notices";
+  const result = await requestInternalApi<{
+    ok: boolean;
+    selectedSource?: string;
+    notices?: NoticeRow[];
+    error?: string;
+  }>({ path: internalPath, clientId: "vercel-admin" });
+  if (result.status !== 200 || result.body.ok !== true || !Array.isArray(result.body.notices)) {
     throw new Error("Unable to load notices for review.");
   }
-
-  const notices = (data as NoticeRow[] | null) ?? [];
+  const notices = result.body.notices;
   const groupedNotices = notices.reduce<Map<string, NoticeRow[]>>((groups, notice) => {
     const group = groups.get(notice.source_name) ?? [];
     group.push(notice);

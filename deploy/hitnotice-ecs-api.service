@@ -1,0 +1,28 @@
+[Unit]
+Description=HITnotice signed internal database API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hitnotice-api
+Group=hitnotice-api
+WorkingDirectory=/opt/hitnotice-api/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/hitnotice/ecs-api.env
+ExecStart=/opt/hitnotice-api/current/node_modules/.bin/tsx scripts/ecs-api.ts
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

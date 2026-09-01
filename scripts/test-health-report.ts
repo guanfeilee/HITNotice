@@ -269,7 +269,7 @@ const noWebhook = digestHealth({
   webhookTracking: false
 });
 assert.equal(noWebhook.status, "success");
-assert.match(noWebhook.reason ?? "", /tracking unavailable/);
+assert.match(noWebhook.reason ?? "", /intentionally disabled/);
 
 // Crawler freshness and failure both affect overall.
 const staleCrawler = crawlerHealth(fridayNow);
