@@ -1,5 +1,8 @@
 # HITnotice
 
+> Canonical source baseline (not yet deployed): web subscribe/unsubscribe/admin use the signed ECS API; ECS retains Supabase. Resend webhook routes are retired. See [Phase A baseline, verification and deployment plan](docs/PHASE_A_CANONICAL_BASELINE.md). Existing production cron remains paused until separately authorized.
+
+
 A campus notification aggregation and email alert service for Harbin Institute of Technology.
 
 ## Overview
@@ -109,7 +112,7 @@ Production deployment uses Vercel for the web application. Production scheduling
 
 ## Environment Variables
 
-Copy `.env.example` and provide values in your local or deployment environment.
+Copy `.env.example` for ECS-side development. For Vercel use `HITNOTICE_ECS_API_BASE_URL`, `HITNOTICE_INTERNAL_API_SECRET` and `ADMIN_CHECK_TOKEN`; do not provision Supabase service-role credentials for the canonical web runtime. See the Phase A plan before changing any deployed environment.
 
 ```env
 # Supabase configuration

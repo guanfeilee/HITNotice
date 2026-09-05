@@ -20,8 +20,7 @@ Do not commit the Resend API key or the real sender credentials to the repositor
 
 ## Required environment variables
 
-The Vercel web application and Alibaba Cloud ECS scheduled jobs use the following
-production environment variables as required by their respective runtime paths:
+The canonical ECS API and ECS scheduled jobs use the following variables. Canonical Vercel proxies subscription requests to ECS and does not send confirmation mail or access Supabase directly. See [Phase A](PHASE_A_CANONICAL_BASELINE.md) before deployment or credential removal:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL

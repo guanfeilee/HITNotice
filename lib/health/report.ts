@@ -340,7 +340,8 @@ export async function getDigestHealthStatus(
   now = new Date()
 ): Promise<HealthDigestStatus> {
   const schedule = getDigestSchedule(digestType, now);
-  const webhookTracking = process.env.RESEND_WEBHOOK_ENABLED === "true";
+  // The canonical route is retired; an environment flag cannot re-enable tracking.
+  const webhookTracking = false;
   if (!schedule.scheduled || !schedule.window) {
     return buildDigestHealthStatus({
       digestType,

@@ -1,7 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { sourceRegistry } from "@/lib/source-registry";
+import { loadAuthorizedAdminNotices } from "@/lib/internal-api/admin-loader";
 import { requestInternalApi } from "@/lib/internal-api/client";
 import "./notices-check.css";
 
@@ -27,44 +26,13 @@ type NoticeRow = {
   source_name: string;
 };
 
-function hasValidToken(candidate: string | undefined) {
-  const expected = process.env.ADMIN_CHECK_TOKEN;
-
-  if (!candidate || !expected) return false;
-
-  const candidateBuffer = Buffer.from(candidate);
-  const expectedBuffer = Buffer.from(expected);
-
-  return candidateBuffer.length === expectedBuffer.length
-    && timingSafeEqual(candidateBuffer, expectedBuffer);
-}
-
 export default async function NoticesCheckPage({ searchParams }: NoticesCheckPageProps) {
   const params = await searchParams;
   const token = typeof params.token === "string" ? params.token : undefined;
 
-  if (!hasValidToken(token)) {
-    notFound();
-  }
-
-  const sourceNames: string[] = sourceRegistry
-    .filter((source) => source.enabled)
-    .map((source) => source.name);
-  const requestedSource = typeof params.source === "string" ? params.source : "";
-  const selectedSource = sourceNames.includes(requestedSource) ? requestedSource : "";
-  const internalPath = selectedSource
-    ? `/internal/admin/notices?source=${encodeURIComponent(selectedSource)}`
-    : "/internal/admin/notices";
-  const result = await requestInternalApi<{
-    ok: boolean;
-    selectedSource?: string;
-    notices?: NoticeRow[];
-    error?: string;
-  }>({ path: internalPath, clientId: "vercel-admin" });
-  if (result.status !== 200 || result.body.ok !== true || !Array.isArray(result.body.notices)) {
-    throw new Error("Unable to load notices for review.");
-  }
-  const notices = result.body.notices;
+  const data = await loadAuthorizedAdminNotices(token, typeof params.source === "string" ? params.source : "", process.env.ADMIN_CHECK_TOKEN, requestInternalApi);
+  if (!data.authorized) notFound();
+  const { sourceNames, selectedSource, notices } = data;
   const groupedNotices = notices.reduce<Map<string, NoticeRow[]>>((groups, notice) => {
     const group = groups.get(notice.source_name) ?? [];
     group.push(notice);

@@ -17,7 +17,12 @@
     "test:digest-reliability": "tsx scripts/test-digest-reliability.ts",
     "send:digest": "tsx scripts/send-digests.ts",
     "digest:retry": "tsx scripts/retry-digest.ts",
-    "wechat:draft": "tsx scripts/create-wechat-draft.ts"
+    "wechat:draft": "tsx scripts/create-wechat-draft.ts",
+    "test:internal-api": "tsx scripts/test-internal-api.ts",
+    "test:canonical": "tsx scripts/test-canonical-baseline.ts",
+    "test": "npm run test:internal-api && npm run test:canonical && npm run test:first-seen-at && npm run test:digest-groups && npm run test:health-report && npm run test:digest-reliability",
+    "check:ecs-api": "tsx scripts/check-ecs-api-health.ts",
+    "test:web-proxy": "tsx scripts/test-web-proxy-integration.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",

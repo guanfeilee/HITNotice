@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import { assertExternalServiceTestAllowed } from "@/lib/testing/write-guard";
 import { generateWechatArticleHtml } from "@/lib/wechat/article";
 import { generateWechatCover } from "@/lib/wechat/cover";
 import { buildWechatDraftRequest, createDraft } from "@/lib/wechat/draft";
@@ -65,6 +66,7 @@ async function main() {
     return;
   }
 
+  assertExternalServiceTestAllowed(process.env);
   await getWechatAccessToken();
   console.log("Wechat token obtained");
 

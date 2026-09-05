@@ -22,13 +22,21 @@ async function main() {
   if (!address || typeof address === "string") throw new Error("test server did not bind");
   const base = `http://127.0.0.1:${address.port}`;
 
-  async function signedFetch(path: string, options: { method?: string; body?: string; now?: Date; nonce?: string } = {}) {
+  async function signedFetch(path: string, options: { method?: string; body?: string; now?: Date; nonce?: string; clientId?: string } = {}) {
     const method = options.method ?? "GET";
     const body = options.body ?? "";
     return fetch(`${base}${path}`, {
       method,
       headers: {
-        ...createSignedInternalApiHeaders({ secret, method, path, body, now: options.now ?? fixedNow, nonce: options.nonce }),
+        ...createSignedInternalApiHeaders({
+          secret,
+          method,
+          path,
+          body,
+          now: options.now ?? fixedNow,
+          nonce: options.nonce,
+          clientId: options.clientId
+        }),
         ...(body ? { "content-type": "application/json" } : {})
       },
       body: body || undefined
@@ -40,6 +48,13 @@ async function main() {
 
   const expired = await signedFetch("/internal/health", { now: new Date(fixedNow.getTime() - 6 * 60 * 1000) });
   assert.equal(expired.status, 401);
+
+  const future = await signedFetch("/internal/health", { now: new Date(fixedNow.getTime() + 6 * 60 * 1000) });
+  assert.equal(future.status, 401);
+  const malformed = await signedFetch("/internal/subscribe", { method: "POST", body: "null" });
+  assert.equal(malformed.status, 400);
+  const admin = await signedFetch("/internal/admin/notices");
+  assert.equal(admin.status, 200);
 
   const originalBody = JSON.stringify({ email: "masked@example.invalid" });
   const tamperedHeaders = createSignedInternalApiHeaders({ secret, method: "POST", path: "/internal/subscribe", body: originalBody, now: fixedNow });
@@ -63,6 +78,31 @@ async function main() {
   const validBody = JSON.stringify({ email: "masked@example.invalid", frequency: "weekday_digest", sourceIds: ["today"] });
   const valid = await signedFetch("/internal/subscribe", { method: "POST", body: validBody });
   assert.equal(valid.status, 200);
+
+  const oversizedBody = JSON.stringify({ payload: "x".repeat(16 * 1024) });
+  const oversized = await signedFetch("/internal/subscribe", {
+    method: "POST",
+    body: oversizedBody,
+    clientId: "body-limit-test"
+  });
+  assert.equal(oversized.status, 413);
+
+  for (let index = 0; index < 20; index += 1) {
+    const allowed = await signedFetch("/internal/subscribe", {
+      method: "POST",
+      body: validBody,
+      clientId: "rate-limit-test",
+      nonce: `rate-limit-${index}`
+    });
+    assert.equal(allowed.status, 200);
+  }
+  const rateLimited = await signedFetch("/internal/subscribe", {
+    method: "POST",
+    body: validBody,
+    clientId: "rate-limit-test",
+    nonce: "rate-limit-blocked"
+  });
+  assert.equal(rateLimited.status, 429);
 
   server.close();
   await once(server, "close");

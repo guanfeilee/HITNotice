@@ -70,6 +70,7 @@ export function createInternalApiServer(dependencies: InternalApiDependencies) {
 
   return createServer(async (request, response) => {
     const startedAt = Date.now();
+    const deadline = setTimeout(() => request.destroy(), requestTimeoutMs);
     request.setTimeout(requestTimeoutMs, () => request.destroy(new Error("request_timeout")));
     const method = request.method?.toUpperCase() ?? "GET";
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -147,6 +148,7 @@ export function createInternalApiServer(dependencies: InternalApiDependencies) {
       else status = 500;
       return json(response, status, { ok: false, error: status === 400 ? "Invalid JSON" : status === 413 ? "Request body too large" : "Internal service error" });
     } finally {
+      clearTimeout(deadline);
       console.log(JSON.stringify({ method, path: pathname, status, duration_ms: Date.now() - startedAt }));
     }
   });

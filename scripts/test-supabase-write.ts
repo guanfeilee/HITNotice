@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import { assertDatabaseWriteTestAllowed } from "@/lib/testing/write-guard";
 
 function requireEnv() {
   const missing = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"].filter((key) => !process.env[key]);
@@ -7,38 +8,16 @@ function requireEnv() {
   }
 }
 
-function printSupabaseError(prefix: string, error: unknown) {
-  if (error && typeof error === "object") {
-    const maybeError = error as {
-      message?: string;
-      code?: string;
-      hint?: string;
-      details?: string;
-      cause?: {
-        code?: string;
-        message?: string;
-      };
-    };
-
-    console.error(`${prefix} failed`);
-    console.error(`message: ${maybeError.message ?? String(error)}`);
-    if (maybeError.code) console.error(`code: ${maybeError.code}`);
-    if (maybeError.hint) console.error(`hint: ${maybeError.hint}`);
-    if (maybeError.details) console.error(`details: ${maybeError.details}`);
-    if (maybeError.cause?.code) console.error(`cause code: ${maybeError.cause.code}`);
-    if (maybeError.cause?.message) console.error(`cause message: ${maybeError.cause.message}`);
-    return;
-  }
-
-  console.error(`${prefix} failed`);
-  console.error(`message: ${String(error)}`);
+function printSupabaseError(prefix: string, _error: unknown) {
+  void _error;
+  console.error(`${prefix} failed (details withheld)`);
 }
 
 async function main() {
   loadEnvConfig(process.cwd());
-  requireEnv();
-
   const writeTest = process.argv.includes("--write-test");
+  if (writeTest) assertDatabaseWriteTestAllowed(process.env);
+  requireEnv();
   const { supabaseAdmin } = await import("@/lib/supabase/admin");
 
   const readResult = await supabaseAdmin.from("notices").select("id,title,url").limit(1);
@@ -58,6 +37,7 @@ async function main() {
   const writeResult = await supabaseAdmin.from("notices").insert({
     title: "HITnotice Supabase write test",
     url: `https://hitnotice.cn/test/supabase-write-${Date.now()}`,
+    source_id: "hitnotice-local-write-test",
     source_name: "HITnotice Test",
     category: "测试",
     published_at: null,
