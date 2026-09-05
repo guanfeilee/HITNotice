@@ -1,6 +1,7 @@
 import { saveSubscription, unsubscribeByToken } from "@/lib/db/subscriptions";
 import { sources } from "@/lib/sources";
 import { sendSubscriptionConfirmationEmail } from "@/lib/email/resend";
+import { cutoverTestEmail, productionWriteMode } from "@/lib/internal-api/write-mode";
 import {
   validateSubscribeBody,
   validateUnsubscribeBody,
@@ -32,7 +33,7 @@ export async function subscribe(
   }
   const { isFirstSubscription, unsubscribe_token: unsubscribeToken } =
     subscription;
-  if (isFirstSubscription) {
+  if (isFirstSubscription && !(productionWriteMode() === "synthetic" && email === cutoverTestEmail)) {
     try {
       await sendSubscriptionConfirmationEmail({
         to: email,

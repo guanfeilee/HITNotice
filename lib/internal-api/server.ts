@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { verifyInternalApiSignature } from "@/lib/internal-api/protocol";
+import { maintenanceMessage } from "./write-mode";
 
 const maxBodyBytes = 16 * 1024;
 const requestTimeoutMs = 10_000;
@@ -15,6 +16,7 @@ export type InternalApiDependencies = {
   unsubscribe: (body: Record<string, unknown>) => Promise<JsonResult>;
   getAdminNotices: (source: string | null) => Promise<{ selectedSource: string; notices: Array<Record<string, unknown>> }>;
   now?: () => Date;
+  allowWrite?: (path: string, body: Record<string, unknown>, clientId: string) => Promise<boolean>;
 };
 
 function json(response: ServerResponse, status: number, body: Record<string, unknown>) {
@@ -126,12 +128,22 @@ export function createInternalApiServer(dependencies: InternalApiDependencies) {
         });
       }
       if (method === "POST" && pathname === "/internal/subscribe") {
-        const result = await dependencies.subscribe(parseObject(rawBody));
+        const body = parseObject(rawBody);
+        if (dependencies.allowWrite && !await dependencies.allowWrite(pathname, body, verification.clientId)) {
+          status = 503;
+          return json(response, status, { ok: false, error: maintenanceMessage });
+        }
+        const result = await dependencies.subscribe(body);
         status = result.status;
         return json(response, status, result.body);
       }
       if (method === "POST" && pathname === "/internal/unsubscribe") {
-        const result = await dependencies.unsubscribe(parseObject(rawBody));
+        const body = parseObject(rawBody);
+        if (dependencies.allowWrite && !await dependencies.allowWrite(pathname, body, verification.clientId)) {
+          status = 503;
+          return json(response, status, { ok: false, error: maintenanceMessage });
+        }
+        const result = await dependencies.unsubscribe(body);
         status = result.status;
         return json(response, status, result.body);
       }

@@ -5,6 +5,10 @@ const eslintConfig = [
   ...nextVitals,
   ...nextTypescript,
   {
+    files: ["ops/**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" }
+  },
+  {
     ignores: [".next/**", ".vercel/**", "node_modules/**", ".npm-cache/**"]
   }
 ];
