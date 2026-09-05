@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily HITnotice PostgreSQL backup at 03:30 Asia/Shanghai
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=120
+Unit=hitnotice-pg-backup.service
+[Install]
+WantedBy=timers.target

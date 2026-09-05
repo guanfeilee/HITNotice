@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+backup_dir=/var/backups/hitnotice
+install -d -m 0700 "$backup_dir"
+exec 9>/run/lock/hitnotice-pg-backup.lock
+flock -n 9 || exit 0
+stamp=$(date -u +%Y%m%d-%H%M%S)
+final="$backup_dir/hitnotice-$stamp.dump"
+tmp=$(mktemp "$backup_dir/.hitnotice-XXXXXX.tmp")
+trap 'rm -f -- "$tmp"' EXIT
+# Root opens the protected file; postgres authenticates by local peer, no password.
+runuser -u postgres -- /usr/lib/postgresql/17/bin/pg_dump -Fc --dbname=hitnotice > "$tmp"
+test -s "$tmp"
+/usr/lib/postgresql/17/bin/pg_restore --list "$tmp" >/dev/null
+chmod 0600 "$tmp"
+mv -- "$tmp" "$final"
+sha256sum "$final" > "$final.sha256"
+chmod 0600 "$final.sha256"
+sha256sum --check --status "$final.sha256"
+printf 'backup_success file=%s bytes=%s archive_list=PASS checksum=PASS\n' "$(basename "$final")" "$(stat -c %s "$final")"
+# Purge only named archives older than 7 days; never delete this latest success.
+while IFS= read -r -d '' old; do
+  [[ "$old" == "$final" ]] && continue
+  rm -f -- "$old" "$old.sha256"
+done < <(find "$backup_dir" -maxdepth 1 -type f -name 'hitnotice-*.dump' -mmin +10080 -print0)

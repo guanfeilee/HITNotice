@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {Client} from 'pg';
+import {query,getPool,closePool} from './lib/db/pool';
+import {transaction} from './lib/db/transaction';
+import {saveSubscription,subscriptionSources,unsubscribeByToken} from './lib/db/subscriptions';
+import {upsertNoticeBatch,digestNotices} from './lib/db/notices';
+import {claimDigestDelivery,recordDigestDeliveryAccepted,recordDigestDeliveryFailure,getDigestDeliveryById} from './lib/db/deliveries';
+import {serializeRequestError} from './lib/email/error-details';
+async function main(){
+  const config=JSON.parse(readFileSync('/etc/hitnotice/postgresql-runtime.json','utf8'));
+  config.database='hitnotice_phasec_test';
+  config.application_name='hitnotice-phasec-smoke';
+  assert.equal(config.host,'127.0.0.1'); assert.equal(config.database,'hitnotice_phasec_test');
+  const url=new URL('postgresql://127.0.0.1:5432/hitnotice_phasec_test'); url.username=config.user;url.password=config.password;
+  process.env.DATABASE_URL=url.toString();
+  const connect:number[]=[],queries:number[]=[];
+  for(let i=0;i<100;i++){
+    const client=new Client(config);const start=performance.now();await client.connect();connect.push(performance.now()-start);
+    const q=performance.now();assert.equal((await client.query('SELECT 1 AS ok')).rows[0].ok,1);queries.push(performance.now()-q);await client.end();
+  }
+  for(let i=0;i<100;i++) assert.equal((await query('SELECT 1 AS ok')).rows[0].ok,1);
+  await Promise.all(Array.from({length:20},()=>query('SELECT pg_sleep(0.05),1 AS ok')));
+  const poolPeak=getPool().totalCount;
+  await transaction('phasec_smoke',async c=>{await c.query('SELECT 1');});
+  for(const sql of ['DROP TABLE notices','ALTER TABLE notices ADD COLUMN forbidden int','CREATE ROLE forbidden_phasec','CREATE DATABASE forbidden_phasec','TRUNCATE notices'])
+    await assert.rejects(query(sql),e=>e instanceof Error&&'code' in e&&e.code==='42501');
+  const sub=await saveSubscription('fixture@example.invalid','weekday_digest',['fixture-a']);
+  await assert.rejects(saveSubscription('fixture@example.invalid','weekly_digest',[' ']));
+  assert.deepEqual((await subscriptionSources(sub.id)).map(r=>r.source_id),['fixture-a']);
+  await saveSubscription('fixture@example.invalid','weekly_digest',['fixture-b']);
+  const first=await unsubscribeByToken(sub.unsubscribe_token);assert.deepEqual(await unsubscribeByToken(sub.unsubscribe_token),first);
+  const window={start:new Date('2026-08-01T00:00:00Z'),end:new Date('2026-08-02T00:00:00Z')};
+  const notice={title:'Synthetic',url:'https://example.invalid/fixture',source_id:'fixture-a',source_name:'Fixture',category:'test',published_at:null,first_seen_at:window.start.toISOString(),hash:'phasec-fixture'};
+  assert.equal((await upsertNoticeBatch([notice])).inserted,1);assert.equal((await upsertNoticeBatch([notice])).unchanged,1);
+  assert.equal((await digestNotices(['fixture-a'],window)).length,1);
+  const claims=await Promise.all([1,2].map(()=>claimDigestDelivery({subscriptionId:sub.id,digestType:'weekday_digest',window,noticeCount:1})));
+  assert.equal(claims.filter(c=>c.claimed).length,1);const deliveryId=claims[0].delivery.id;
+  await recordDigestDeliveryAccepted({deliveryId,resendEmailId:'phasec-synthetic-provider',attempt:1,durationMs:1,httpStatus:200,responseSummary:'synthetic'});
+  await recordDigestDeliveryFailure({deliveryId,attempt:1,durationMs:1,httpStatus:null,errorMessage:'synthetic late failure',errorDetails:serializeRequestError(new Error('synthetic'),{stage:'phasec'}),responseSummary:null});
+  assert.equal((await getDigestDeliveryById(deliveryId))?.status,'accepted');
+  assert.equal(getPool().options.max,5);assert.equal(getPool().waitingCount,0);
+  await closePool();
+  const observer=new Client(config);await observer.connect();
+  const remaining=(await observer.query("SELECT count(*)::int n FROM pg_stat_activity WHERE usename=current_user AND pid<>pg_backend_pid() AND backend_type='client backend'")).rows[0].n;
+  await observer.end();assert.equal(remaining,0);
+  const stats=(v:number[])=>({min:Math.min(...v),mean:v.reduce((a,b)=>a+b,0)/v.length,max:Math.max(...v)});
+  const result={attempts:100,failures:0,connectionMs:stats(connect),queryMs:stats(queries),poolSequential:100,poolConcurrent:20,poolPeak,remainingRuntimeConnections:remaining,repositorySmoke:'PASS',permissions:'PASS'};
+  writeFileSync('/root/hitnotice-phase-c-20260905/smoke-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}
+main().catch(()=>{console.error('Phase C repository smoke failed; details withheld');process.exitCode=1;}).finally(closePool);

@@ -1,0 +1,353 @@
+{
+  "schemaCounts": {
+    "tables": 7,
+    "columns": 82,
+    "indexes": 29,
+    "checks": 36,
+    "primaryKeys": 7,
+    "foreignKeys": 2,
+    "uniqueConstraints": 2,
+    "triggers": 3,
+    "functions": 1
+  },
+  "criticalIndexes": [
+    {
+      "indexname": "crawl_runs_pkey",
+      "indexdef": "CREATE UNIQUE INDEX crawl_runs_pkey ON public.crawl_runs USING btree (id)"
+    },
+    {
+      "indexname": "crawl_runs_source_started_at_idx",
+      "indexdef": "CREATE INDEX crawl_runs_source_started_at_idx ON public.crawl_runs USING btree (source_id, started_at DESC)"
+    },
+    {
+      "indexname": "crawl_runs_status_idx",
+      "indexdef": "CREATE INDEX crawl_runs_status_idx ON public.crawl_runs USING btree (status)"
+    },
+    {
+      "indexname": "digest_runs_pkey",
+      "indexdef": "CREATE UNIQUE INDEX digest_runs_pkey ON public.digest_runs USING btree (id)"
+    },
+    {
+      "indexname": "digest_runs_scheduled_period_key",
+      "indexdef": "CREATE UNIQUE INDEX digest_runs_scheduled_period_key ON public.digest_runs USING btree (digest_type, run_kind, period_start, period_end)"
+    },
+    {
+      "indexname": "digest_runs_status_started_at_idx",
+      "indexdef": "CREATE INDEX digest_runs_status_started_at_idx ON public.digest_runs USING btree (status, started_at DESC)"
+    },
+    {
+      "indexname": "digest_runs_type_kind_period_end_idx",
+      "indexdef": "CREATE INDEX digest_runs_type_kind_period_end_idx ON public.digest_runs USING btree (digest_type, run_kind, period_end DESC)"
+    },
+    {
+      "indexname": "email_deliveries_idempotency_key_key",
+      "indexdef": "CREATE UNIQUE INDEX email_deliveries_idempotency_key_key ON public.email_deliveries USING btree (idempotency_key)"
+    },
+    {
+      "indexname": "email_deliveries_period_idx",
+      "indexdef": "CREATE INDEX email_deliveries_period_idx ON public.email_deliveries USING btree (period_start, period_end)"
+    },
+    {
+      "indexname": "email_deliveries_pkey",
+      "indexdef": "CREATE UNIQUE INDEX email_deliveries_pkey ON public.email_deliveries USING btree (id)"
+    },
+    {
+      "indexname": "email_deliveries_resend_email_id_key",
+      "indexdef": "CREATE UNIQUE INDEX email_deliveries_resend_email_id_key ON public.email_deliveries USING btree (resend_email_id) WHERE (resend_email_id IS NOT NULL)"
+    },
+    {
+      "indexname": "email_deliveries_status_idx",
+      "indexdef": "CREATE INDEX email_deliveries_status_idx ON public.email_deliveries USING btree (status)"
+    },
+    {
+      "indexname": "email_deliveries_subscription_digest_period_key",
+      "indexdef": "CREATE UNIQUE INDEX email_deliveries_subscription_digest_period_key ON public.email_deliveries USING btree (subscription_id, digest_type, period_start, period_end)"
+    },
+    {
+      "indexname": "email_deliveries_subscription_id_idx",
+      "indexdef": "CREATE INDEX email_deliveries_subscription_id_idx ON public.email_deliveries USING btree (subscription_id)"
+    },
+    {
+      "indexname": "notices_category_idx",
+      "indexdef": "CREATE INDEX notices_category_idx ON public.notices USING btree (category)"
+    },
+    {
+      "indexname": "notices_first_seen_at_idx",
+      "indexdef": "CREATE INDEX notices_first_seen_at_idx ON public.notices USING btree (first_seen_at DESC)"
+    },
+    {
+      "indexname": "notices_hash_key",
+      "indexdef": "CREATE UNIQUE INDEX notices_hash_key ON public.notices USING btree (hash)"
+    },
+    {
+      "indexname": "notices_pkey",
+      "indexdef": "CREATE UNIQUE INDEX notices_pkey ON public.notices USING btree (id)"
+    },
+    {
+      "indexname": "notices_published_at_idx",
+      "indexdef": "CREATE INDEX notices_published_at_idx ON public.notices USING btree (published_at DESC)"
+    },
+    {
+      "indexname": "notices_source_id_idx",
+      "indexdef": "CREATE INDEX notices_source_id_idx ON public.notices USING btree (source_id)"
+    },
+    {
+      "indexname": "resend_webhook_events_email_id_idx",
+      "indexdef": "CREATE INDEX resend_webhook_events_email_id_idx ON public.resend_webhook_events USING btree (resend_email_id)"
+    },
+    {
+      "indexname": "resend_webhook_events_pkey",
+      "indexdef": "CREATE UNIQUE INDEX resend_webhook_events_pkey ON public.resend_webhook_events USING btree (id)"
+    },
+    {
+      "indexname": "resend_webhook_events_svix_id_key",
+      "indexdef": "CREATE UNIQUE INDEX resend_webhook_events_svix_id_key ON public.resend_webhook_events USING btree (svix_id)"
+    },
+    {
+      "indexname": "subscription_sources_pkey",
+      "indexdef": "CREATE UNIQUE INDEX subscription_sources_pkey ON public.subscription_sources USING btree (id)"
+    },
+    {
+      "indexname": "subscription_sources_subscription_id_idx",
+      "indexdef": "CREATE INDEX subscription_sources_subscription_id_idx ON public.subscription_sources USING btree (subscription_id)"
+    },
+    {
+      "indexname": "subscription_sources_unique",
+      "indexdef": "CREATE UNIQUE INDEX subscription_sources_unique ON public.subscription_sources USING btree (subscription_id, source_id)"
+    },
+    {
+      "indexname": "subscriptions_email_unique",
+      "indexdef": "CREATE UNIQUE INDEX subscriptions_email_unique ON public.subscriptions USING btree (email)"
+    },
+    {
+      "indexname": "subscriptions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX subscriptions_pkey ON public.subscriptions USING btree (id)"
+    },
+    {
+      "indexname": "subscriptions_unsubscribe_token_key",
+      "indexdef": "CREATE UNIQUE INDEX subscriptions_unsubscribe_token_key ON public.subscriptions USING btree (unsubscribe_token) WHERE (unsubscribe_token IS NOT NULL)"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "conname": "email_deliveries_subscription_id_fkey",
+      "definition": "FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE"
+    },
+    {
+      "conname": "subscription_sources_subscription_id_fkey",
+      "definition": "FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE"
+    }
+  ],
+  "triggers": [
+    {
+      "tgname": "digest_runs_set_updated_at",
+      "tgenabled": "O",
+      "definition": "CREATE TRIGGER digest_runs_set_updated_at BEFORE UPDATE ON public.digest_runs FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    },
+    {
+      "tgname": "notices_set_updated_at",
+      "tgenabled": "O",
+      "definition": "CREATE TRIGGER notices_set_updated_at BEFORE UPDATE ON public.notices FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    },
+    {
+      "tgname": "subscriptions_set_updated_at",
+      "tgenabled": "O",
+      "definition": "CREATE TRIGGER subscriptions_set_updated_at BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    }
+  ],
+  "extensions": [
+    {
+      "extname": "plpgsql"
+    }
+  ],
+  "roles": [
+    {
+      "rolname": "hitnotice_owner",
+      "rolsuper": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolcanlogin": false
+    },
+    {
+      "rolname": "hitnotice_runtime",
+      "rolsuper": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolcanlogin": true
+    }
+  ],
+  "runtimePasswordScram": true,
+  "targetBusinessRows": {
+    "crawl_runs": 0,
+    "digest_runs": 0,
+    "email_deliveries": 0,
+    "notices": 0,
+    "resend_webhook_events": 0,
+    "subscription_sources": 0,
+    "subscriptions": 0
+  },
+  "settings": [
+    {
+      "name": "TimeZone",
+      "setting": "UTC",
+      "unit": null
+    },
+    {
+      "name": "fsync",
+      "setting": "on",
+      "unit": null
+    },
+    {
+      "name": "full_page_writes",
+      "setting": "on",
+      "unit": null
+    },
+    {
+      "name": "listen_addresses",
+      "setting": "127.0.0.1",
+      "unit": null
+    },
+    {
+      "name": "log_error_verbosity",
+      "setting": "terse",
+      "unit": null
+    },
+    {
+      "name": "log_min_duration_statement",
+      "setting": "-1",
+      "unit": "ms"
+    },
+    {
+      "name": "log_min_error_statement",
+      "setting": "panic",
+      "unit": null
+    },
+    {
+      "name": "log_parameter_max_length",
+      "setting": "0",
+      "unit": "B"
+    },
+    {
+      "name": "log_parameter_max_length_on_error",
+      "setting": "0",
+      "unit": "B"
+    },
+    {
+      "name": "maintenance_work_mem",
+      "setting": "65536",
+      "unit": "kB"
+    },
+    {
+      "name": "max_connections",
+      "setting": "30",
+      "unit": null
+    },
+    {
+      "name": "password_encryption",
+      "setting": "scram-sha-256",
+      "unit": null
+    },
+    {
+      "name": "port",
+      "setting": "5432",
+      "unit": null
+    },
+    {
+      "name": "shared_buffers",
+      "setting": "16384",
+      "unit": "8kB"
+    },
+    {
+      "name": "synchronous_commit",
+      "setting": "on",
+      "unit": null
+    },
+    {
+      "name": "work_mem",
+      "setting": "4096",
+      "unit": "kB"
+    }
+  ],
+  "hba": [
+    {
+      "type": "local",
+      "database": [
+        "all"
+      ],
+      "user_name": [
+        "postgres"
+      ],
+      "address": null,
+      "auth_method": "peer",
+      "error": null
+    },
+    {
+      "type": "local",
+      "database": [
+        "all"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "address": null,
+      "auth_method": "reject",
+      "error": null
+    },
+    {
+      "type": "host",
+      "database": [
+        "hitnotice",
+        "hitnotice_restore_test",
+        "hitnotice_restore_verify",
+        "hitnotice_phasec_test"
+      ],
+      "user_name": [
+        "hitnotice_runtime"
+      ],
+      "address": "127.0.0.1",
+      "auth_method": "scram-sha-256",
+      "error": null
+    },
+    {
+      "type": "host",
+      "database": [
+        "all"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "address": "127.0.0.1",
+      "auth_method": "reject",
+      "error": null
+    },
+    {
+      "type": "host",
+      "database": [
+        "all"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "address": "0.0.0.0",
+      "auth_method": "reject",
+      "error": null
+    },
+    {
+      "type": "host",
+      "database": [
+        "all"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "address": "::",
+      "auth_method": "reject",
+      "error": null
+    }
+  ],
+  "protectedFilesAndCronUnchanged": true,
+  "protectedEntries": 213,
+  "targetDatabaseBytes": 8148659
+}

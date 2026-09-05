@@ -1,0 +1,7 @@
+{
+  "samples": 14,
+  "minAvailableMiB": 955.140625,
+  "maxSwapUsedKiB": 0,
+  "maxLoad1m": 0.11,
+  "maxPostgresProcesses": 11
+}

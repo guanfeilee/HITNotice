@@ -1,0 +1,20 @@
+{
+  "attempts": 100,
+  "failures": 0,
+  "connectionMs": {
+    "min": 8.620849999999791,
+    "mean": 10.594537719999998,
+    "max": 26.105209999999943
+  },
+  "queryMs": {
+    "min": 0.7157490000004145,
+    "mean": 1.0471547300000066,
+    "max": 6.072104000000081
+  },
+  "poolSequential": 100,
+  "poolConcurrent": 20,
+  "poolPeak": 5,
+  "remainingRuntimeConnections": 0,
+  "repositorySmoke": "PASS",
+  "permissions": "PASS"
+}

@@ -1,0 +1,65 @@
+{
+  "integrity": "PASS",
+  "rowCounts": {
+    "notices": 3,
+    "subscriptions": 3,
+    "subscription_sources": 6,
+    "email_deliveries": 9,
+    "digest_runs": 2,
+    "crawl_runs": 2,
+    "resend_webhook_events": 1
+  },
+  "allRowFieldsSha256Equal": true,
+  "catalogEqual": true,
+  "uuidTimestampJsonbIdempotencyEqual": true,
+  "deliveryStates": [
+    {
+      "status": "accepted",
+      "n": 1
+    },
+    {
+      "status": "bounced",
+      "n": 1
+    },
+    {
+      "status": "complained",
+      "n": 1
+    },
+    {
+      "status": "delivered",
+      "n": 1
+    },
+    {
+      "status": "failed",
+      "n": 1
+    },
+    {
+      "status": "pending",
+      "n": 1
+    },
+    {
+      "status": "sent",
+      "n": 1
+    },
+    {
+      "status": "skipped",
+      "n": 1
+    },
+    {
+      "status": "suppressed",
+      "n": 1
+    }
+  ],
+  "archiveBytes": 56873,
+  "archiveSha256": "c4238071ab8c92cedf7349eb52e3bdea7a8e15fbb4cca31fb29c25973cf74dd3",
+  "sourceDatabaseBytes": 8443571,
+  "targetEmptyCounts": {
+    "notices": 0,
+    "subscriptions": 0,
+    "subscription_sources": 0,
+    "email_deliveries": 0,
+    "digest_runs": 0,
+    "crawl_runs": 0,
+    "resend_webhook_events": 0
+  }
+}
