@@ -1,0 +1,426 @@
+{
+  "snapshot-metadata": {
+    "directory": "/var/backups/hitnotice/migration-rehearsal/run-2026-09-05T11-17-06-631Z-0ziBKg",
+    "startedAt": "2026-09-05T11:17:06.635Z",
+    "endpoint": "aws-1-ap-northeast-2.pooler.supabase.com",
+    "format": "custom data-only",
+    "canonicalCommit": "13d46e7cea1d2c1ff128696666cd299f2f2524bd",
+    "status": "PASS",
+    "sourceVersion": "17.6",
+    "snapshotTimestamp": "2026-09-05 11:17:07.628361+00",
+    "transient": {
+      "pending": 0,
+      "running": 0
+    },
+    "sourceIntegrityMs": 5036,
+    "pgDumpVersion": "pg_dump (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg22.04+2)",
+    "dumpMs": 13319,
+    "dumpBytes": 479291,
+    "sha256": "2a5ebcd27cf95b5ee6e68908464d8307b825a46b8e4266e28a1fbce8487fdeda",
+    "finishedAt": "2026-09-05T11:17:27.264Z",
+    "transfer": "Streamed directly from Supabase to ECS by pg_dump; no separate transfer"
+  },
+  "restore-results": {
+    "status": "PASS",
+    "database": "hitnotice_migration_rehearsal",
+    "owner": "hitnotice_owner",
+    "restoreMs": 139,
+    "integrityMs": 2967,
+    "tableCount": 7,
+    "columns": 82,
+    "indexes": 29,
+    "checks": 36,
+    "triggers": 3,
+    "functions": 1,
+    "catalogMatch": true,
+    "fullManifestMatch": true,
+    "invariants": {
+      "sourceOrphans": 0,
+      "deliveryOrphans": 0,
+      "noticeNullHash": 0,
+      "deliveryNullKey": 0,
+      "noticeHash": 0,
+      "subscriptionEmail": 0,
+      "subscriptionToken": 0,
+      "subscriptionSource": 0,
+      "deliveryKey": 0,
+      "deliveryWindow": 0,
+      "providerId": 0,
+      "runWindow": 0,
+      "webhookId": 0
+    },
+    "microsecondWindowEndpoints": {
+      "email_deliveries": 0,
+      "digest_runs": 0
+    },
+    "distributions": {
+      "subscriptions": {
+        "status": [
+          {
+            "value": "active",
+            "count": 73
+          },
+          {
+            "value": "unsubscribed",
+            "count": 3
+          }
+        ],
+        "frequency": [
+          {
+            "value": "weekday_digest",
+            "count": 69
+          },
+          {
+            "value": "weekly_digest",
+            "count": 7
+          }
+        ]
+      },
+      "email_deliveries": {
+        "status": [
+          {
+            "value": "accepted",
+            "count": 1536
+          },
+          {
+            "value": "sent",
+            "count": 210
+          }
+        ]
+      },
+      "digest_runs": {
+        "status": [
+          {
+            "value": "success",
+            "count": 29
+          }
+        ]
+      },
+      "crawl_runs": {
+        "status": [
+          {
+            "value": "failed",
+            "count": 159
+          },
+          {
+            "value": "success",
+            "count": 1978
+          }
+        ]
+      }
+    },
+    "tables": {
+      "notices": {
+        "rows": 1155,
+        "hashPrefix": "dd05fe6756333d11",
+        "match": true
+      },
+      "subscriptions": {
+        "rows": 76,
+        "hashPrefix": "c5a0452a4b4a5bcc",
+        "match": true
+      },
+      "subscription_sources": {
+        "rows": 391,
+        "hashPrefix": "dc29342206b88214",
+        "match": true
+      },
+      "email_deliveries": {
+        "rows": 1746,
+        "hashPrefix": "0d3ab166ac856b09",
+        "match": true
+      },
+      "digest_runs": {
+        "rows": 29,
+        "hashPrefix": "0b220577a74f9c26",
+        "match": true
+      },
+      "crawl_runs": {
+        "rows": 2137,
+        "hashPrefix": "f1394fe253075ce1",
+        "match": true
+      },
+      "resend_webhook_events": {
+        "rows": 0,
+        "hashPrefix": "e3b0c44298fc1c14",
+        "match": true
+      }
+    },
+    "runtime": "SELECT only; database-specific read-only default",
+    "triggerHandling": "Kept enabled; COPY inserts do not run UPDATE triggers"
+  },
+  "repository-read-results": {
+    "status": "PASS",
+    "canonicalCommit": "13d46e7cea1d2c1ff128696666cd299f2f2524bd",
+    "checks": {
+      "runtime": "READ ONLY; SELECT privileges only; BEGIN/ROLLBACK PASS",
+      "digestReads": {
+        "subscriptionsChecked": 73,
+        "noticeQueries": 73,
+        "comparison": "Independent in-memory filtering of hash-verified snapshot rows; full identities compared privately"
+      },
+      "scheduledRunReads": 29,
+      "admin": {
+        "filters": 28,
+        "limit": 200,
+        "shapeAndFilterAndOrder": "PASS"
+      },
+      "health": "Snapshot-derived counts/crawler state and unchanged pure health business rules agree; generate only"
+    },
+    "dryRun": {
+      "weekday_digest": {
+        "users": 66,
+        "recipients": 0,
+        "notices": 0,
+        "groups": 352,
+        "skipped": 66,
+        "blocked": 0,
+        "failed": 0
+      },
+      "weekly_digest": {
+        "users": 7,
+        "recipients": 5,
+        "notices": 196,
+        "groups": 30,
+        "skipped": 2,
+        "blocked": 0,
+        "failed": 0
+      }
+    },
+    "performance": {
+      "activeSubscriptions": {
+        "samples": 20,
+        "medianMs": 1.119,
+        "maxMs": 2.537
+      },
+      "subscriptionSources": {
+        "samples": 20,
+        "medianMs": 0.767,
+        "maxMs": 1.206
+      },
+      "digestNotices": {
+        "samples": 20,
+        "medianMs": 0.999,
+        "maxMs": 9.801
+      },
+      "healthAggregates": {
+        "samples": 20,
+        "medianMs": 6.988,
+        "maxMs": 12.972
+      },
+      "adminNotices": {
+        "samples": 20,
+        "medianMs": 1.553,
+        "maxMs": 1.707
+      },
+      "latestDelivery": {
+        "samples": 20,
+        "medianMs": 0.912,
+        "maxMs": 1.377
+      },
+      "latestRun": {
+        "samples": 20,
+        "medianMs": 0.877,
+        "maxMs": 3.92
+      }
+    },
+    "health": [
+      {
+        "at": "2026-09-05T11:17:07.628Z",
+        "overall": "failed",
+        "totalSources": 26,
+        "successful": 0,
+        "failed": 0,
+        "stale": 26,
+        "noData": 0,
+        "newNotices": 0,
+        "digestStates": {
+          "weekday_digest": "not_scheduled",
+          "weekly_digest": "not_scheduled"
+        },
+        "allDeliveryMetrics": {
+          "accepted": 1746,
+          "sent": 210,
+          "delivered": 0,
+          "suppressed": 0,
+          "bounced": 0,
+          "complained": 0,
+          "pending": 0,
+          "stalePending": 0,
+          "deliveryFailed": 0,
+          "successful": 1746
+        }
+      },
+      {
+        "at": "2026-09-01T12:30:00.000Z",
+        "overall": "failed",
+        "totalSources": 26,
+        "successful": 23,
+        "failed": 3,
+        "stale": 0,
+        "noData": 0,
+        "newNotices": 55,
+        "digestStates": {
+          "weekday_digest": "success",
+          "weekly_digest": "not_scheduled"
+        },
+        "allDeliveryMetrics": {
+          "accepted": 1746,
+          "sent": 210,
+          "delivered": 0,
+          "suppressed": 0,
+          "bounced": 0,
+          "complained": 0,
+          "pending": 0,
+          "stalePending": 0,
+          "deliveryFailed": 0,
+          "successful": 1746
+        }
+      }
+    ],
+    "networkAttempts": 0,
+    "poolMax": 5
+  },
+  "synthetic-results": {
+    "status": "PASS",
+    "database": "hitnotice_phased_synthetic",
+    "checks": {
+      "subscriptions": {
+        "create": true,
+        "replace": true,
+        "failureRollback": true,
+        "explicitRollback": true,
+        "concurrentRequests": 8,
+        "singleIdentity": true
+      },
+      "crawler": {
+        "insert": true,
+        "update": true,
+        "unchanged": true,
+        "firstSeenMicrosecondsPreserved": true
+      },
+      "deliveryClaims": {
+        "concurrentRequests": 10,
+        "singleClaim": true,
+        "failedRetry": true,
+        "acceptedProtection": true
+      },
+      "runClaims": {
+        "concurrentRequests": 10,
+        "singleClaim": true
+      },
+      "unsubscribe": {
+        "concurrentRequests": 5,
+        "idempotent": true
+      }
+    },
+    "networkAttempts": 0
+  },
+  "final-results": {
+    "status": "PASS",
+    "database": "hitnotice_migration_rehearsal",
+    "syntheticDatabaseRemoved": true,
+    "syntheticHbaRemoved": true,
+    "finalHashesMatch": true,
+    "finalIntegrityMs": 2746,
+    "backupMs": 163,
+    "backupBytes": 526778,
+    "backupSha256": "a88249961df8a55446aaec204094933e8ae5f0047020f39b2a32d07371921c1d",
+    "backupList": "PASS",
+    "backupPath": "/var/backups/hitnotice/migration-rehearsal/run-2026-09-05T11-17-06-631Z-0ziBKg/hitnotice-migration-rehearsal.dump",
+    "laterLiveSource": {
+      "timestamp": "2026-09-05T11:27:53.109Z",
+      "counts": {
+        "notices": 1155,
+        "subscriptions": 76,
+        "subscription_sources": 391,
+        "email_deliveries": 1746,
+        "digest_runs": 29,
+        "crawl_runs": 2137,
+        "resend_webhook_events": 0
+      },
+      "pending": 0,
+      "running": 0
+    },
+    "formalTargetCounts": {
+      "notices": 0,
+      "subscriptions": 0,
+      "subscription_sources": 0,
+      "email_deliveries": 0,
+      "digest_runs": 0,
+      "crawl_runs": 0,
+      "resend_webhook_events": 0
+    },
+    "artifactPermissions": "0700 directory / 0600 files",
+    "temporaryPgpassRemoved": true,
+    "retention": "Real rehearsal retained, localhost only, runtime SELECT only and per-database default read-only, no scheduler",
+    "finishedAt": "2026-09-05T11:27:54.898Z"
+  },
+  "native-stability": {
+    "startedAt": "2026-09-05T11:12:43.196Z",
+    "attempts": 30,
+    "successful": 30,
+    "failures": 0,
+    "samples": [
+      1483.35,
+      1158.32,
+      1168.53,
+      1266.24,
+      1254.17,
+      1275.9,
+      1103.63,
+      1092.18,
+      1075.16,
+      1109.91,
+      1289.63,
+      1129.3,
+      1146.82,
+      1057.79,
+      1044.48,
+      1159.6,
+      1061.96,
+      1076.44,
+      1076.72,
+      1107.44,
+      1192.5,
+      1057.49,
+      1022.71,
+      1213.35,
+      1209.2,
+      1192.3,
+      1094.13,
+      1026.58,
+      1090.3,
+      1027.93
+    ],
+    "medianMs": 1109.91,
+    "maxMs": 1483.35,
+    "finishedAt": "2026-09-05T11:13:20.976Z",
+    "status": "PASS"
+  },
+  "production-safety": {
+    "schemaCounts": {
+      "tables": 7,
+      "columns": 82,
+      "indexes": 29,
+      "checks": 36,
+      "primaryKeys": 7,
+      "foreignKeys": 2,
+      "uniqueConstraints": 2,
+      "triggers": 3,
+      "functions": 1
+    },
+    "targetBusinessRows": {
+      "crawl_runs": 0,
+      "digest_runs": 0,
+      "email_deliveries": 0,
+      "notices": 0,
+      "resend_webhook_events": 0,
+      "subscription_sources": 0,
+      "subscriptions": 0
+    },
+    "protectedFilesAndCronUnchanged": true,
+    "protectedEntries": 213,
+    "targetDatabaseBytes": 8148659
+  }
+}

@@ -1,0 +1,21 @@
+# Phase D controlled rehearsal
+
+Execution on 2026-09-05 completed successfully. See `docs/PHASE_D_PRODUCTION_DATA_MIGRATION_REHEARSAL_REPORT.md` and the aggregate-only evidence under `docs/phase-d-evidence/`. The earlier Data API stop gate was explicitly revised by the user; native PostgreSQL stability and all migration gates passed. Real data remains only on ECS.
+
+These scripts are scoped to the recorded 2026-09-05 infrastructure and a single rehearsal. They deliberately refuse existing databases/artifacts rather than overwriting them. For another run, first review provenance and approved names. Do not replay finalization after its synthetic database has already been removed.
+
+Execution order: `native-stability.cjs` (30 independent connections), `export-snapshot.cjs` (same-snapshot source manifest and pg_dump), `restore-snapshot.cjs` (canonical schema, owner restore, full parity, SELECT-only runtime), the read-only TypeScript template, `setup-synthetic.cjs`, the synthetic TypeScript template, then `finalize.cjs` (scoped synthetic cleanup, final real-data hashes, backup and source/empty-target checks). `manifest.cjs` is shared. Copy TypeScript templates to the root of the independently verified Phase B archive as `.ts` files so their relative imports resolve; execute with its pinned tsx runtime. They are templates in this checkout to avoid adding misplaced imports to the application build.
+
+Source access is SELECT / pg_dump only. Real data and full manifests must remain on the ECS in `/var/backups/hitnotice/migration-rehearsal/` (directory 0700, files 0600). Do not copy source credentials or archives into this checkout.
+
+Required source credential file: root-owned regular JSON file, 0600, with fields `host`, `port`, `database`, `user`, `password`; `sslrootcert` points to the approved official CA certificate. Credentials were supplied after the user performed the separately authorized reset and are now saved at `/root/.config/hitnotice/supabase-production-db.json`. Never print them or reset them again as a connection workaround. A Supabase REST key is not a PostgreSQL password.
+
+Snapshot design: one long-lived REPEATABLE READ READ ONLY source transaction exports a PostgreSQL snapshot. Within that same transaction, collect column definitions, canonical full-table hashes/counts/distributions and transient states. Invoke pg_dump 17 custom-format data-only with an explicit seven-table allowlist and `--snapshot` while the exporting transaction remains open. Source comparison is tied to this snapshot, not a later live count. Keep snapshot duration bounded and fail closed if any operation fails.
+
+Canonical data hash: fixed Phase B column order with source column names/types checked; rows ordered by UUID primary key. Each field is `[is_SQL_NULL, value]`, distinguishing SQL NULL from JSON null. Timestamptz is UTC with six fractional digits (infinite timestamps retain their explicit text); UUID is lowercase canonical text, other text unchanged, JSONB normalized by PostgreSQL serialization. Hash an 8-byte-length-framed UTF-8 stream of canonical rows with SHA-256. Compare full digests privately and publish at most 16 hex characters.
+
+Target: only `hitnotice_migration_rehearsal`, schema from Phase B commit 13d46e7cea1d2c1ff128696666cd299f2f2524bd. Restore data as hitnotice_owner; do not copy source RLS, ACL, ownership, roles, platform schemas or extensions. Require constraints and all triggers enabled afterward. No automatic drop of an existing rehearsal database unless its origin has been confirmed.
+
+Application verification: dedicated isolated Phase B source, runtime read-only transactions, read-only connection defaults, external fetch blocked, aggregate-only output. Do not invoke sending CLIs. Evaluate weekday/weekly digest generation via read functions and pure grouping only. Any synthetic writes/concurrency checks must use a separate clearly named sandbox, never real subscriber IDs, and end with snapshot hashes unchanged.
+
+Formal target `hitnotice` must remain zero rows before and after all actions. Preserve application configuration hashes, business crontab and API/nginx PIDs. Do not claim cutover readiness until actual restore/integrity/compatibility results and operational gates are satisfied.

@@ -1,0 +1,109 @@
+// Copy to the root of the verified Phase B archive before executing with tsx.
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {Client} from 'pg';
+import {query,getPool,closePool} from './lib/db/pool';
+import * as digest from './lib/digest/service';
+import {getScheduledDigestRun} from './lib/db/digest-runs';
+import {noticeCounts} from './lib/db/health';
+import {getAdminNotices} from './lib/admin/notices-service';
+import {getCrawlerHealth} from './lib/crawler/health';
+import {generateHealthReport,buildHealthReport,buildDigestHealthStatus,getDigestSchedule,calculateDeliveryHealthMetrics} from './lib/health/report';
+import {getCurrentDigestPeriodEnd,getDefaultDigestWindow,getDigestWindowFromLastSuccess} from './lib/digest/windows';
+import {sources} from './lib/sources';
+import {sourceRegistry} from './lib/source-registry';
+import {crawlSources} from './lib/crawler/sources';
+import type {DigestType} from './lib/digest/types';
+
+let phase='setup';let networkAttempts=0;
+globalThis.fetch=async()=>{networkAttempts++;throw Error('NETWORK_FORBIDDEN');};
+const accepted=new Set(['accepted','sent','delivered','suppressed','bounced','complained']);
+const types:DigestType[]=['weekday_digest','weekly_digest'];
+const result:any={status:'IN_PROGRESS',canonicalCommit:'13d46e7cea1d2c1ff128696666cd299f2f2524bd',checks:{},dryRun:{},performance:{}};
+const dir=readFileSync('/root/hitnotice-phase-d-20260905/current-artifact-path','utf8').trim();
+const output=dir+'/repository-read-results.json';
+const time=(s:string)=>new Date(s).getTime();
+async function main(){
+ const c=JSON.parse(readFileSync('/etc/hitnotice/postgresql-runtime.json','utf8'));
+ assert.equal(c.host,'127.0.0.1');c.database='hitnotice_migration_rehearsal';
+ const url=new URL('postgresql://127.0.0.1:5432/hitnotice_migration_rehearsal');url.username=c.user;url.password=c.password;
+ process.env.DATABASE_URL=url.toString();
+ for(const key of Object.keys(process.env))if(/RESEND|SUPABASE|WECHAT/.test(key))delete process.env[key];
+ const guard=new Client(c);await guard.connect();
+ assert.equal((await guard.query('SHOW default_transaction_read_only')).rows[0].default_transaction_read_only,'on');
+ await guard.query('BEGIN READ ONLY');assert.equal((await guard.query('SHOW transaction_read_only')).rows[0].transaction_read_only,'on');await guard.query('ROLLBACK');
+ const rights=(await guard.query("SELECT bool_and(has_table_privilege(current_user,c.oid,'SELECT')) AS can_read,bool_or(has_table_privilege(current_user,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE')) AS can_write FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'")).rows[0];
+ assert.equal(rights.can_read,true);assert.equal(rights.can_write,false);await guard.end();
+ result.checks.runtime='READ ONLY; SELECT privileges only; BEGIN/ROLLBACK PASS';
+ assert.equal((await query('SHOW transaction_read_only')).rows[0].transaction_read_only,'on');
+ const all:any={};for(const table of ['subscriptions','subscription_sources','notices','email_deliveries','digest_runs','crawl_runs'])all[table]=(await query(`SELECT * FROM ${table}`)).rows;
+ const now=new Date(JSON.parse(readFileSync(dir+'/snapshot-metadata.json','utf8')).snapshotTimestamp);
+ const end=getCurrentDigestPeriodEnd(now),nameById=new Map(sources.map(s=>[s.id,s.name]));
+ let subscriptionsChecked=0,noticeQueries=0;
+ phase='digest_reads';
+ for(const type of types){
+  const active=await digest.getActiveDigestSubscriptions(type);
+  const expected=all.subscriptions.filter((s:any)=>s.status==='active'&&s.frequency===type);
+  assert.deepEqual(active.map(s=>s.id).sort(),expected.map((s:any)=>s.id).sort());
+  const stats={users:active.length,recipients:0,notices:0,groups:0,skipped:0,blocked:0,failed:0};
+  for(const sub of active){
+   const source=all.subscriptions.find((s:any)=>s.id===sub.id);assert.equal(sub.email,source.email);assert.equal(sub.unsubscribeToken,source.unsubscribe_token??'');
+   const selected=await digest.getSubscriptionSources(sub.id),ids=selected.map(s=>s.id);
+   assert.deepEqual([...ids].sort(),[...new Set(all.subscription_sources.filter((s:any)=>s.subscription_id===sub.id).map((s:any)=>s.source_id))].sort());
+   const prior=all.email_deliveries.filter((d:any)=>d.subscription_id===sub.id&&d.digest_type===type&&accepted.has(d.status)&&time(d.period_end)<end.getTime()).sort((a:any,b:any)=>time(b.period_end)-time(a.period_end));
+   const window=await digest.getDigestWindowForSubscription(sub.id,type,end);
+   assert.deepEqual(window,getDigestWindowFromLastSuccess(type,end,prior[0]?.period_end));
+   const block=await digest.getLatestPermanentDeliveryBlock(sub.id);
+   const expectedBlock=all.email_deliveries.filter((d:any)=>d.subscription_id===sub.id&&['suppressed','bounced','complained'].includes(d.status)).sort((a:any,b:any)=>time(b.period_end)-time(a.period_end))[0];
+   assert.equal(block?.id??null,expectedBlock?.id??null);
+   const notices=await digest.getNoticesForSources(ids,window);
+   const expectNotices=all.notices.filter((n:any)=>ids.includes(n.source_id)&&time(n.first_seen_at)>=window.start.getTime()&&time(n.first_seen_at)<window.end.getTime());
+   assert.deepEqual(notices.map(n=>n.id).sort(),expectNotices.map((n:any)=>n.id).sort());
+   for(let i=1;i<notices.length;i++)assert.ok(time(notices[i-1].firstSeenAt)>=time(notices[i].firstSeenAt));
+   for(const n of notices){const raw=expectNotices.find((x:any)=>x.id===n.id);assert.equal(n.title,raw.title);assert.equal(n.url,raw.url);assert.equal(n.sourceName,nameById.get(raw.source_id)??raw.source_name);}
+   const built=await digest.buildDigest(sub.id,type,window);assert.equal(built.total,notices.length);assert.equal(built.groups.reduce((n,g)=>n+g.notices.length,0),notices.length);
+   stats.groups+=built.groups.length;stats.notices+=built.total;
+   if(block)stats.blocked++;else if(built.total===0)stats.skipped++;else stats.recipients++;
+   subscriptionsChecked++;noticeQueries++;
+  }
+  assert.equal(stats.users,stats.recipients+stats.skipped+stats.blocked+stats.failed);result.dryRun[type]=stats;
+ }
+ result.checks.digestReads={subscriptionsChecked,noticeQueries,comparison:'Independent in-memory filtering of hash-verified snapshot rows; full identities compared privately'};
+ phase='historical_run_reads';
+ for(const raw of all.digest_runs){
+  const run=await getScheduledDigestRun(raw.digest_type,{start:new Date(raw.period_start),end:new Date(raw.period_end)});
+  if(raw.run_kind==='scheduled'){assert.equal(run?.id,raw.id);assert.equal(run?.status,raw.status);assert.deepEqual(run?.metadata,raw.metadata);for(const k of ['users','recipients','skipped','blocked','failed'])assert.equal((run as any)[k],raw[k]);}
+ }
+ result.checks.scheduledRunReads=all.digest_runs.length;
+ phase='admin';let adminFilters=0;
+ for(const filter of [null,'invalid-source',...sourceRegistry.filter(s=>s.enabled).map(s=>s.name)]){
+  const got=await getAdminNotices(filter);assert.ok(got.notices.length<=200);
+  const raw=(await query('SELECT title,url,source_name FROM notices WHERE ($1::text=\'\' OR source_name=$1) ORDER BY first_seen_at DESC LIMIT 200',[got.selectedSource])).rows;
+  assert.deepEqual(got.notices,raw);for(const row of got.notices)assert.deepEqual(Object.keys(row).sort(),['source_name','title','url']);adminFilters++;
+ }
+ result.checks.admin={filters:adminFilters,limit:200,shapeAndFilterAndOrder:'PASS'};
+ phase='health';
+ const recent=(await query('SELECT * FROM crawl_runs ORDER BY started_at DESC LIMIT 500')).rows;
+ const expectedCrawler=crawlSources.map(s=>{const latest:any=recent.find((r:any)=>r.source_id===s.id),success:any=recent.find((r:any)=>r.source_id===s.id&&r.status==='success');return latest?{sourceId:s.id,sourceName:latest.source_name||s.name,status:latest.status==='success'?'OK':'FAIL',foundCount:latest.found_count,newCount:latest.new_count,httpStatus:latest.http_status,errorMessage:latest.error_message,startedAt:latest.started_at,finishedAt:latest.finished_at,lastSuccessAt:success?.finished_at??null}:{sourceId:s.id,sourceName:s.name,status:'NO_DATA',foundCount:0,newCount:0,httpStatus:null,errorMessage:'No crawl run recorded',startedAt:null,finishedAt:null,lastSuccessAt:null};});
+ assert.deepEqual(await getCrawlerHealth(),expectedCrawler);
+ const scenarios=[now,new Date(Math.max(...all.digest_runs.map((r:any)=>time(r.period_end)))+30*60000)];
+ result.health=[];
+ for(const moment of scenarios){
+  const start=moment.getTime()-86400000,counts=new Map<string,number>();
+  for(const row of all.notices)if(time(row.first_seen_at)>=start&&time(row.first_seen_at)<moment.getTime())counts.set(row.source_id,(counts.get(row.source_id)??0)+1);
+  assert.deepEqual(await noticeCounts({start:new Date(start),end:moment}),counts);
+  const digests:any={};
+  for(const type of types){const schedule=getDigestSchedule(type,moment);const run=schedule.window?await getScheduledDigestRun(type,schedule.window):null;const rows=run?all.email_deliveries.filter((d:any)=>d.digest_type===type&&time(d.period_end)===schedule.window!.end.getTime()):[];digests[type]=buildDigestHealthStatus({digestType:type,now:moment,schedule,run,deliveries:rows,webhookTracking:false});}
+  const report=await generateHealthReport(moment),expected=buildHealthReport({now:moment,crawlerHealth:expectedCrawler as any,noticeCounts:counts,digests});assert.deepEqual(report,expected);
+  const metrics=calculateDeliveryHealthMetrics(all.email_deliveries,moment);assert.equal(metrics.accepted,all.email_deliveries.filter((d:any)=>accepted.has(d.status)||d.accepted_at||d.sent_at).length);
+  result.health.push({at:moment.toISOString(),overall:report.overallStatus,totalSources:report.totalSources,successful:report.successfulSources,failed:report.failedSources,stale:report.staleSources,noData:report.noDataSources,newNotices:report.totalNewNotices,digestStates:Object.fromEntries(types.map(t=>[t,report.digests[t].status])),allDeliveryMetrics:metrics});
+ }
+ result.checks.health='Snapshot-derived counts/crawler state and unchanged pure health business rules agree; generate only';
+ phase='performance';
+ const sample=all.subscriptions.find((s:any)=>s.status==='active'),ids=all.subscription_sources.filter((s:any)=>s.subscription_id===sample.id).map((s:any)=>s.source_id),window=getDefaultDigestWindow('weekday_digest',end);
+ const bench:any={activeSubscriptions:()=>digest.getActiveDigestSubscriptions('weekday_digest'),subscriptionSources:()=>digest.getSubscriptionSources(sample.id),digestNotices:()=>digest.getNoticesForSources(ids,window),healthAggregates:()=>generateHealthReport(now),adminNotices:()=>getAdminNotices(null),latestDelivery:()=>digest.getLatestPermanentDeliveryBlock(sample.id),latestRun:()=>getScheduledDigestRun('weekday_digest',window)};
+ for(const [name,fn] of Object.entries(bench)){await (fn as any)();const samples=[];for(let i=0;i<20;i++){const t=performance.now();await (fn as any)();samples.push(performance.now()-t);}samples.sort((a,b)=>a-b);result.performance[name]={samples:20,medianMs:+((samples[9]+samples[10])/2).toFixed(3),maxMs:+samples[19].toFixed(3)};}
+ assert.equal(networkAttempts,0);result.networkAttempts=0;result.poolMax=getPool().options.max;result.status='PASS';
+ writeFileSync(output,JSON.stringify(result,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(result));
+}
+main().catch(()=>{result.status='FAIL';result.failedPhase=phase;writeFileSync(output,JSON.stringify(result,null,2)+'\n',{mode:0o600});console.log(JSON.stringify({status:'FAIL',failedPhase:phase}));process.exitCode=1;}).finally(closePool);

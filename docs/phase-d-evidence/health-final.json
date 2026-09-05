@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-09-05T11:29:55.660539+00:00",
+  "checks": [
+    {
+      "name": "ecs_health",
+      "result": "FAIL",
+      "errorType": "RemoteDisconnected",
+      "latencyMs": 10009
+    },
+    {
+      "name": "data_api",
+      "result": "FAIL",
+      "errorType": "URLError",
+      "latencyMs": 21335
+    },
+    {
+      "name": "homepage",
+      "httpStatus": 200,
+      "result": "PASS",
+      "latencyMs": 324
+    }
+  ]
+}
