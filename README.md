@@ -1,6 +1,6 @@
 # HITnotice
 
-> Canonical source baseline (not yet deployed): web subscribe/unsubscribe/admin use the signed ECS API; ECS retains Supabase. Resend webhook routes are retired. See [Phase A baseline, verification and deployment plan](docs/PHASE_A_CANONICAL_BASELINE.md). Existing production cron remains paused until separately authorized.
+> Phase B source baseline (not deployed): signed ECS API and CLI jobs use PostgreSQL repositories. Production remains unchanged and cron stays paused. Start with [Phase B report](docs/PHASE_B_POSTGRESQL_REPOSITORY.md) and [schema/test setup](docs/POSTGRESQL_SCHEMA_BASELINE.md); Phase A and historical deployment sections are prior-stage records, not instructions to deploy this branch.
 
 
 A campus notification aggregation and email alert service for Harbin Institute of Technology.
@@ -39,7 +39,7 @@ HITnotice is designed for students and campus community members who want to foll
 flowchart LR
     A[Official Campus Websites]
     B[Crawler]
-    C[Supabase Database]
+    C[PostgreSQL Repository / Database]
     D[Digest Generator]
     E[Email Delivery]
     F[Health Monitoring]
@@ -51,7 +51,7 @@ flowchart LR
     B --> F
 ```
 
-The crawler checks publicly accessible official announcement pages and stores discovered announcements in Supabase. The digest generator reads active subscriptions, groups newly discovered announcements by selected sources, and sends email summaries through Resend. Health monitoring records crawler status for each source.
+The crawler checks publicly accessible official announcement pages and stores discovered announcements in PostgreSQL. The digest generator reads active subscriptions, groups newly discovered announcements by selected sources, and sends email summaries through Resend. Health monitoring records crawler status for each source.
 
 ## System Architecture
 
@@ -67,7 +67,7 @@ Backend:
 
 Database:
 
-- Supabase
+- PostgreSQL 17
 
 Email:
 
@@ -103,7 +103,7 @@ The supported source list is defined in the project source registry and may be u
 Required services:
 
 - Node.js
-- Supabase
+- PostgreSQL 17
 - Resend
 - Vercel
 - Environment variables for database, email delivery, site URL, and monitoring
@@ -115,10 +115,8 @@ Production deployment uses Vercel for the web application. Production scheduling
 Copy `.env.example` for ECS-side development. For Vercel use `HITNOTICE_ECS_API_BASE_URL`, `HITNOTICE_INTERNAL_API_SECRET` and `ADMIN_CHECK_TOKEN`; do not provision Supabase service-role credentials for the canonical web runtime. See the Phase A plan before changing any deployed environment.
 
 ```env
-# Supabase configuration
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+# ECS server-only database
+DATABASE_URL=
 
 # Email service
 RESEND_API_KEY=

@@ -1,6 +1,6 @@
 import { crawlSources } from "@/lib/crawler/sources";
 import type { SourceCrawlResult } from "@/lib/crawler/types";
-import { insertCrawlRunRow, selectRecentCrawlRunRows } from "@/lib/supabase/rest";
+import { insertCrawlRunRow, selectRecentCrawlRunRows } from "@/lib/db/crawl-runs";
 
 export type CrawlRunStatus = "success" | "failed";
 
@@ -56,7 +56,7 @@ export async function recordCrawlRun(params: {
     status: getCrawlRunStatus(result),
     http_status: result.httpStatus ?? null,
     found_count: result.parsed,
-    new_count: result.insertedOrUpdated,
+    new_count: result.inserted ?? result.insertedOrUpdated,
     error_message: getCrawlRunError(result)
   });
 }

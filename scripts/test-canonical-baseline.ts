@@ -29,9 +29,6 @@ function request(body: unknown) {
   return new Request("https://web.example.invalid/api", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
 }
 async function main() {
-  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.invalid";
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "unit-test-placeholder";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "unit-test-placeholder";
   globalThis.fetch = stub(() => { throw new Error("Unexpected external network request"); });
   const { subscribe, unsubscribe } = await import("@/lib/subscriptions/service");
   await test("client signing binds method, path, timestamp, nonce and body", async () => {
@@ -158,8 +155,9 @@ async function main() {
     assert.equal((await checkEcsApi(env, stub(() => Response.json({ error: fakeSecret }, { status: 401 })))).ok, false);
   });
   await test("write tests fail closed for production and all remote databases", () => {
-    for (const env of [{}, { NODE_ENV: "production", ALLOW_DATABASE_WRITE_TEST: "1", NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }, { VERCEL_ENV: "production", ALLOW_DATABASE_WRITE_TEST: "1", NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }, { ALLOW_DATABASE_WRITE_TEST: "1", NEXT_PUBLIC_SUPABASE_URL: "https://production.example.invalid" }, { NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }]) assert.throws(() => assertDatabaseWriteTestAllowed(env));
-    assert.doesNotThrow(() => assertDatabaseWriteTestAllowed({ ALLOW_DATABASE_WRITE_TEST: "1", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" }));
+    const safe = { NODE_ENV:"test", ALLOW_TEST_DATABASE_RESET:"1", DATABASE_URL:"postgresql://fixture@127.0.0.1:55432/hitnotice_test" };
+    for (const env of [{},{...safe,NODE_ENV:"production"},{...safe,VERCEL_ENV:"production"},{...safe,ALLOW_TEST_DATABASE_RESET:"0"},{...safe,DATABASE_URL:"postgresql://production.example.invalid/hitnotice_test"},{...safe,DATABASE_URL:"postgresql://localhost/hitnotice"}]) assert.throws(()=>assertDatabaseWriteTestAllowed(env));
+    assert.doesNotThrow(()=>assertDatabaseWriteTestAllowed(safe));
     assert.throws(() => assertExternalServiceTestAllowed({}));
     assert.throws(() => assertExternalServiceTestAllowed({ NODE_ENV: "production", ALLOW_EXTERNAL_SERVICE_TEST: "1" }));
   });
@@ -168,7 +166,7 @@ async function main() {
     function visit(file: string) {
       if (visited.has(file)) return; visited.add(file);
       const source = readFileSync(file, "utf8");
-      assert.ok(!/SUPABASE_SERVICE_ROLE_KEY|createSupabaseAdminClient|supabaseAdmin|rest\/v1|applyResendDeliveryEvent|@supabase\//.test(source), `Forbidden database dependency: ${file}`);
+      assert.ok(!/from [\'"]pg[\'"]|@\/lib\/db|DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY|createSupabaseAdminClient|supabaseAdmin|rest\/v1|applyResendDeliveryEvent|@supabase\//.test(source), `Forbidden database dependency: ${file}`);
       const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
       function scan(node: ts.Node) {
         let spec: string | undefined;
@@ -189,6 +187,18 @@ async function main() {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     assert.equal(pkg.scripts["send:delta"], undefined);
     assert.equal(existsSync("lib/digest/delta.ts"), false);
+  });
+  await test("all production modules and CLI entrypoints reject retired DB configuration", () => {
+    function audit(dir: string) {
+      for(const item of readdirSync(dir,{withFileTypes:true})) {
+        const file=path.join(dir,item.name);
+        if(item.isDirectory()) audit(file);
+        else if(/\.tsx?$/.test(file) && !item.name.startsWith("test-"))
+          assert.ok(!/supabase|rest\/v1|createClient/i.test(readFileSync(file,"utf8")),`Retired DB dependency: ${file}`);
+      }
+    }
+    audit("lib");audit("app");audit("scripts");
+    assert.equal(JSON.parse(readFileSync("package.json","utf8")).dependencies["@supabase/supabase-js"],undefined);
   });
   console.log(`Canonical baseline: ${checks} test groups passed; no production services used`);
 }

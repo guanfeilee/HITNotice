@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { getNoticesForSources } from "@/lib/digest/service";
 import { getCurrentDigestPeriodEnd, getDefaultDigestWindow } from "@/lib/digest/windows";
@@ -72,4 +73,4 @@ async function main() {
 main().catch((error) => {
   console.error(`wechat:draft failed: ${sanitizeError(error)}`);
   process.exitCode = 1;
-});
+}).finally(closePool);

@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import {
   buildDigest,
@@ -89,4 +90,4 @@ async function main() {
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
-});
+}).finally(closePool);

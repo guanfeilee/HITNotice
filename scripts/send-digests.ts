@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import {
   buildDigest,
@@ -214,4 +215,4 @@ async function main() {
 main().catch((error) => {
   console.error(`Digest run failed: ${sanitizeDigestRunError(error)}`);
   process.exitCode = 1;
-});
+}).finally(closePool);

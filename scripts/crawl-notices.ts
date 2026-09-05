@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { fetchSourceHtml, SourceFetchError } from "@/lib/crawler/fetch";
 import { recordCrawlRun } from "@/lib/crawler/health";
@@ -27,7 +28,7 @@ function formatNowIso() {
 }
 
 function requireEnv() {
-  const missing = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"].filter(
+  const missing = ["DATABASE_URL"].filter(
     (key) => !process.env[key]
   );
 
@@ -109,7 +110,7 @@ async function crawlSource(
     }
 
     if (!upsertNotices) {
-      throw new Error("Missing Supabase writer");
+      throw new Error("Missing database writer");
     }
 
     const upsertResult = await upsertNotices(normalized);
@@ -137,6 +138,7 @@ async function crawlSource(
       writeStatus: "success",
       parsed: normalized.length,
       insertedOrUpdated: upsertResult.insertedOrUpdated,
+      inserted: upsertResult.inserted,
       notices: normalized
     } satisfies SourceCrawlResult;
   } catch (error) {
@@ -212,7 +214,7 @@ async function main() {
     requireEnv();
     ({ upsertNotices } = await import("@/lib/crawler/upsert"));
   } else {
-    console.log("Running in dry-run mode. Supabase write is skipped.");
+    console.log("Running in dry-run mode. Database write is skipped.");
   }
 
   const results: SourceCrawlResult[] = [];
@@ -231,4 +233,4 @@ main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`crawl:notices failed: ${message}`);
   process.exitCode = 1;
-});
+}).finally(closePool);

@@ -1,3 +1,5 @@
+> Historical Supabase deployment guide. For Phase B source, use [PostgreSQL report](PHASE_B_POSTGRESQL_REPOSITORY.md) and [canonical schema](POSTGRESQL_SCHEMA_BASELINE.md). Do not apply the historical migration/deployment commands to PostgreSQL. No production cutover has occurred.
+
 # HITnotice Email Production Guide
 
 This document records the production setup for HITnotice weekday and weekly digest emails.

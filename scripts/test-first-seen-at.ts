@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { CrawledNotice } from "@/lib/crawler/types";
-import { toNoticeInsertPayload, toNoticeUpdatePayload } from "@/lib/supabase/rest";
+import { toNoticeInsertPayload, toNoticeUpdatePayload } from "@/lib/db/notices";
 import type { DigestWindow } from "@/lib/digest/types";
 
 type StoredNotice = ReturnType<typeof toNoticeInsertPayload>;

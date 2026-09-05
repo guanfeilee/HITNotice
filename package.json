@@ -9,7 +9,6 @@
     "crawl:notices": "tsx scripts/crawl-notices.ts",
     "crawl:health": "tsx scripts/crawl-health.ts",
     "health:report": "tsx scripts/generate-health-report.ts",
-    "test:supabase": "tsx scripts/test-supabase-write.ts",
     "test:first-seen-at": "tsx scripts/test-first-seen-at.ts",
     "test:digest-groups": "tsx scripts/test-digest-groups.ts",
     "test:wechat": "tsx scripts/test-wechat.ts",
@@ -22,14 +21,16 @@
     "test:canonical": "tsx scripts/test-canonical-baseline.ts",
     "test": "npm run test:internal-api && npm run test:canonical && npm run test:first-seen-at && npm run test:digest-groups && npm run test:health-report && npm run test:digest-reliability",
     "check:ecs-api": "tsx scripts/check-ecs-api-health.ts",
-    "test:web-proxy": "tsx scripts/test-web-proxy-integration.ts"
+    "test:web-proxy": "tsx scripts/test-web-proxy-integration.ts",
+    "test:db": "tsx scripts/test-postgresql.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
-    "@supabase/supabase-js": "2.110.0",
     "cheerio": "^1.2.0",
     "iconv-lite": "^0.7.3",
     "next": "^16.2.10",
+    "pg": "^8.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "svix": "^1.98.0"
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^20.19.4",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.30.1",

@@ -1,6 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { createInternalApiServer } from "@/lib/internal-api/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { checkDatabase, closePool } from "@/lib/db/pool";
 import { subscribe, unsubscribe } from "@/lib/subscriptions/service";
 import { getAdminNotices } from "@/lib/admin/notices-service";
 
@@ -14,12 +14,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Inv
 const server = createInternalApiServer({
   secret,
   release: process.env.HITNOTICE_RELEASE_COMMIT ?? "unknown",
-  checkDatabase: async () => {
-    const { client } = createSupabaseAdminClient();
-    if (!client) return false;
-    const { error } = await client.from("notices").select("id", { head: true, count: "planned" }).limit(0);
-    return !error;
-  },
+  checkDatabase: async () => { try { await checkDatabase(); return true; } catch { return false; } },
   subscribe,
   unsubscribe,
   getAdminNotices: async (source) => getAdminNotices(source)
@@ -31,8 +26,9 @@ server.listen(port, "127.0.0.1", () => {
 
 function shutdown(signal: string) {
   console.log(JSON.stringify({ event: "ecs_api_stopping", signal }));
-  server.close((error) => {
-    process.exitCode = error ? 1 : 0;
+  server.close(async (error) => {
+    try { await closePool(); process.exitCode = error ? 1 : 0; }
+    catch { process.exitCode = 1; console.error("Database shutdown failed"); }
   });
 }
 

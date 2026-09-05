@@ -35,6 +35,7 @@ export type SourceCrawlResult = {
   httpStatus?: number;
   parsed: number;
   insertedOrUpdated: number;
+  inserted?: number;
   notices: CrawledNotice[];
   fetchError?: string;
   parseError?: string;
@@ -42,6 +43,9 @@ export type SourceCrawlResult = {
 };
 
 export type UpsertResult = {
+  inserted: number;
+  updated: number;
+  unchanged: number;
   insertedOrUpdated: number;
   skipped: number;
   mode: "upsert-hash" | "insert-new-by-url" | "none";

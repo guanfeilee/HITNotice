@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { assertExternalServiceTestAllowed } from "@/lib/testing/write-guard";
 import { generateWechatArticleHtml } from "@/lib/wechat/article";
@@ -107,4 +108,4 @@ async function main() {
 main().catch((error) => {
   console.error(`test:wechat failed: ${sanitizeError(error)}`);
   process.exitCode = 1;
-});
+}).finally(closePool);

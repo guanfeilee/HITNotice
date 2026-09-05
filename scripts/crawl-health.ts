@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { getCrawlerHealth, type SourceHealth } from "@/lib/crawler/health";
 
@@ -56,7 +57,7 @@ main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   if (/crawl_runs|schema cache|Could not find the table/i.test(message)) {
     console.error(
-      "crawl:health failed: public.crawl_runs is missing. Apply supabase/migrations/20260708030000_crawl_runs.sql first."
+      "crawl:health failed: public.crawl_runs is missing. Apply the canonical database baseline first."
     );
     process.exitCode = 1;
     return;
@@ -64,4 +65,4 @@ main().catch((error) => {
 
   console.error(`crawl:health failed: ${message}`);
   process.exitCode = 1;
-});
+}).finally(closePool);

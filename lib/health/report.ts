@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { noticeCounts, getDeliveriesForScheduledRun } from "@/lib/db/health";
 import { getCrawlerHealth, type SourceHealth } from "@/lib/crawler/health";
 import { crawlSources } from "@/lib/crawler/sources";
 import {
@@ -10,7 +10,6 @@ import {
 } from "@/lib/digest/windows";
 import { getScheduledDigestRun, type DigestRunRecord, type DigestRunStatus } from "@/lib/digest/runs";
 import type { DigestType, DigestWindow } from "@/lib/digest/types";
-import { getSupabaseAdminEnv, supabaseClientOptions } from "@/lib/supabase/config";
 
 const dayMs = 24 * 60 * 60 * 1000;
 export const crawlerFreshnessMs = 60 * 60 * 1000;
@@ -83,10 +82,6 @@ export type HealthReport = {
   overallStatus: "healthy" | "degraded" | "failed";
 };
 
-type NoticeCountRow = {
-  source_id: string;
-  source_name: string;
-};
 
 export type EmailDeliveryHealthRow = {
   status:
@@ -113,11 +108,7 @@ type HealthReportInput = {
   digests: Record<DigestType, HealthDigestStatus>;
 };
 
-function getSupabaseAdmin() {
-  const envResult = getSupabaseAdminEnv();
-  if (!envResult.ok) throw new Error(envResult.error);
-  return createClient(envResult.env.supabaseUrl, envResult.env.serviceRoleKey, supabaseClientOptions);
-}
+
 
 export function getHealthWindow(now = new Date()) {
   return {
@@ -126,23 +117,7 @@ export function getHealthWindow(now = new Date()) {
   };
 }
 
-export async function getNewNoticeCountsBySource(window = getHealthWindow()) {
-  const { data, error } = await getSupabaseAdmin()
-    .from("notices")
-    .select("source_id,source_name")
-    .gte("first_seen_at", window.start.toISOString())
-    .lt("first_seen_at", window.end.toISOString())
-    .limit(10000);
-
-  if (error) throw new Error(`Failed to load health notice counts: ${error.message}`);
-
-  const counts = new Map<string, number>();
-  for (const row of ((data as NoticeCountRow[] | null) ?? [])) {
-    if (!row.source_id) continue;
-    counts.set(row.source_id, (counts.get(row.source_id) ?? 0) + 1);
-  }
-  return counts;
-}
+export async function getNewNoticeCountsBySource(window = getHealthWindow()) { return noticeCounts(window); }
 
 export function getDigestSchedule(
   digestType: DigestType,
@@ -323,16 +298,6 @@ export function buildDigestHealthStatus(params: {
     reason,
     lastError: run.errorMessage ?? deliveryError
   };
-}
-
-async function getDeliveriesForScheduledRun(digestType: DigestType, window: DigestWindow) {
-  const { data, error } = await getSupabaseAdmin()
-    .from("email_deliveries")
-    .select("status,accepted_at,sent_at,error_message,processing_started_at,created_at")
-    .eq("digest_type", digestType)
-    .eq("period_end", window.end.toISOString());
-  if (error) throw new Error(`Failed to load ${digestType} scheduled delivery health: ${error.message}`);
-  return (data as EmailDeliveryHealthRow[] | null) ?? [];
 }
 
 export async function getDigestHealthStatus(

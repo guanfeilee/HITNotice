@@ -1,0 +1,20 @@
+{
+  "postgresVersion": "17.11 (Debian 17.11-1.pgdg13+2)",
+  "fixtureCounts": {
+    "notices": 1200,
+    "subscriptions": 80,
+    "subscription_sources": 400,
+    "email_deliveries": 1800,
+    "digest_runs": 0,
+    "crawl_runs": 2000,
+    "resend_webhook_events": 0
+  },
+  "timingsMs": {
+    "active_subscriptions": 0.98,
+    "digest_notices": 2.33,
+    "crawler_upsert_100": 4.61,
+    "delivery_claim": 1.76,
+    "health_aggregates": 0.86
+  },
+  "suiteGroups": 18
+}

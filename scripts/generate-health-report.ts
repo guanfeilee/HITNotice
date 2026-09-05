@@ -1,3 +1,4 @@
+import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { generateHealthReport, renderHealthReportText } from "@/lib/health/report";
 import { executeHealthReportCommand } from "@/lib/health/command";
@@ -55,4 +56,4 @@ async function main() {
 main().catch((error) => {
   console.error(`health:report failed: ${sanitizeError(error)}`);
   process.exitCode = 1;
-});
+}).finally(closePool);
