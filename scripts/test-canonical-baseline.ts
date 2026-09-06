@@ -78,6 +78,24 @@ async function main() {
     const failed = createInternalApiClient(config, stub(() => { throw new Error(fakeSecret); }));
     assert.ok(!JSON.stringify(await failed({ path: "/internal/health" })).includes(fakeSecret));
   });
+  await test("transport logs only allowlisted error classifications", async () => {
+    const logs: string[] = [];
+    const original = console.error;
+    console.error = line => { logs.push(String(line)); };
+    try {
+      const sensitiveMarker = "DO_NOT_LOG_FIXTURE";
+      const error = new Error(sensitiveMarker, { cause: { code: sensitiveMarker } });
+      error.name = sensitiveMarker;
+      const call = createInternalApiClient(config, stub(() => { throw error; }));
+      assert.equal((await call({ path: "/internal/health" })).status, 503);
+      assert.deepEqual(JSON.parse(logs[0]), { event: "internal_api_request_failed", category: "request_exception", name: "Unknown", code: "UNAVAILABLE" });
+      const reset = createInternalApiClient(config, stub(() => { throw new TypeError(sensitiveMarker, { cause: { code: "ECONNRESET" } }); }));
+      await reset({ path: "/internal/health" });
+      assert.equal(JSON.parse(logs[1]).code, "ECONNRESET");
+      assert.ok(!logs.join("").includes(sensitiveMarker));
+      assert.ok(!logs.join("").includes(fakeSecret));
+    } finally { console.error = original; }
+  });
   await test("subscribe validation is shared, invalid input makes zero upstream calls", async () => {
     let calls = 0;
     const call = createInternalApiClient(config, stub(() => { calls++; return Response.json({ ok: true }); }));

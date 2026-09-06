@@ -1,193 +1,105 @@
 # HITnotice
 
-> Phase B source baseline (not deployed): signed ECS API and CLI jobs use PostgreSQL repositories. Production remains unchanged and cron stays paused. Start with [Phase B report](docs/PHASE_B_POSTGRESQL_REPOSITORY.md) and [schema/test setup](docs/POSTGRESQL_SCHEMA_BASELINE.md); Phase A and historical deployment sections are prior-stage records, not instructions to deploy this branch.
-
-
 A campus notification aggregation and email alert service for Harbin Institute of Technology.
 
-## Overview
-
-HITnotice automatically collects publicly available campus announcements from multiple official sources and delivers personalized email summaries. Users can choose between `weekday_digest` and `weekly_digest`: weekday summaries are sent at 20:00 from Monday to Friday, while weekly summaries are sent at 20:00 every Friday.
-
-The service focuses on:
-
-- Public information aggregation
-- Automated monitoring
-- Personalized notification
-- Email digest delivery
-
-HITnotice is designed for students and campus community members who want to follow selected official announcement sources without manually checking many separate websites.
+This branch, `migration/edgeone-ready`, prepares the canonical PostgreSQL application for **EdgeOne preview import**. The public site is currently in maintenance and the production cutover is incomplete. Preparing this source branch does not deploy a website, open database writers, or resume scheduled jobs.
 
 ## Features
 
-- Automated collection from official campus information sources
-- Multi-source announcement aggregation
-- Incremental notification detection
-- User-selectable weekday and weekly email digests
-- Subscription-based source selection
-- Subscription confirmation email
-- One-click unsubscribe links
-- Source health monitoring
-- Failure detection and runtime status tracking
-- Notices are deduplicated using stable hashes
-- New notices are determined by `first_seen_at`
-- Each digest type maintains independent delivery history
+- Aggregation of publicly accessible campus announcements from the source registry.
+- User-selected sources and weekday or weekly digest preferences.
+- Subscription confirmation and unsubscribe links.
+- Stable notice hashes and preserved `first_seen_at` for digest windows.
+- Transactional subscription updates, atomic delivery/run claims, and delivery history.
+- Crawler and digest health monitoring.
+- Optional ECS-side WeChat draft tooling.
 
-## How It Works
+The normal scheduling design is weekday digest delivery at 20:00 Asia/Shanghai and weekly delivery on Friday. These are business rules, not a claim that paused production schedules have resumed.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    A[Official Campus Websites]
-    B[Crawler]
-    C[PostgreSQL Repository / Database]
-    D[Digest Generator]
-    E[Email Delivery]
-    F[Health Monitoring]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    B --> F
+    Browser --> Web["Next.js web host / EdgeOne preview"]
+    Web -->|signed HTTPS| API["ECS internal API"]
+    API --> DB["localhost PostgreSQL 17"]
+    Jobs["ECS crawler / digest / health"] --> DB
+    API --> Resend
+    Jobs --> Resend
 ```
 
-The crawler checks publicly accessible official announcement pages and stores discovered announcements in PostgreSQL. The digest generator reads active subscriptions, groups newly discovered announcements by selected sources, and sends email summaries through Resend. Health monitoring records crawler status for each source.
+The web host proxies subscriptions, unsubscriptions, and authorized admin reads through the signed ECS API. It does not connect directly to PostgreSQL or Supabase, and it does not send email. Subscription confirmation is handled by the ECS service. The retired Resend webhook stays disabled with HTTP 410.
 
-## System Architecture
+ECS and the web host share one repository and canonical commit family, but have different runtime roles and environment variables. The ECS write gate remains configurable and fails closed by default; web routes are normal proxies, not permanently hard-coded maintenance handlers.
 
-Frontend:
+## EdgeOne preview preparation
 
-- Next.js
-- React
+See [EdgeOne deployment instructions](docs/EDGEONE_DEPLOYMENT.md) for repository import, environment ownership, framework requirements, and the read-only PoC sequence. Do not bind the production domain during the PoC.
 
-Backend:
+- Repository: `guanfeilee/HITNotice`
+- Branch: `migration/edgeone-ready`
+- Framework: Next.js App Router, locked Next.js 16.2.10
+- Install: `npm ci`
+- Build: `npm run build`
+- Generic Node.js start: `npm start`
 
-- Node.js
-- TypeScript
+Use the Next.js full-stack preset, including server routes. A static-only export cannot implement the signed API proxy or dynamic admin page. This branch does not include Vercel regions, Vercel SDKs, or a new public diagnostic endpoint.
 
-Database:
+## Environment ownership
 
-- PostgreSQL 17
+`.env.example` contains names and blank placeholders grouped by runtime. Do not copy the ECS-only section into EdgeOne.
 
-Email:
+Web host:
+- `HITNOTICE_ECS_API_BASE_URL`
+- `HITNOTICE_INTERNAL_API_SECRET`
+- `ADMIN_CHECK_TOKEN` for the private admin page
+- `NEXT_PUBLIC_SITE_URL` is optional here; current web code does not read it. ECS email-link generation uses it separately.
 
-- Resend
+ECS API and jobs:
+- `DATABASE_URL`
+- `RESEND_API_KEY`, `EMAIL_FROM`
+- `HEALTH_REPORT_EMAIL`
+- `WECHAT_APP_ID`, `WECHAT_APP_SECRET` only for separately enabled WeChat tooling
+- `HITNOTICE_WRITE_MODE`, `HITNOTICE_ECS_API_PORT`, `HITNOTICE_RELEASE_COMMIT`
 
-Deployment:
+Neither Supabase credentials nor database/email credentials are required on the web host. Missing internal API configuration permits a build but causes valid subscription requests to fail safely with 503. It never falls back to another database.
 
-- Vercel
-- Alibaba Cloud ECS
-- Alibaba Cloud ECS cron jobs for scheduled tasks
-
-## Notification Logic
-
-- The crawler runs through Alibaba Cloud ECS cron jobs.
-- Notices are deduplicated by a stable hash derived from the source and normalized URL.
-- `first_seen_at` is used to determine newly discovered notices.
-- `weekday_digest` runs from Monday to Friday at 20:00 Beijing time.
-- `weekly_digest` runs every Friday at 20:00 Beijing time.
-- `email_deliveries` stores delivery history separately for each digest type.
-
-## Data Sources
-
-HITnotice currently covers selected public campus information sources, including:
-
-- University-level sources
-- Graduate and undergraduate related offices
-- Schools and departments
-
-The supported source list is defined in the project source registry and may be updated as official websites change.
-
-## Deployment
-
-Required services:
-
-- Node.js
-- PostgreSQL 17
-- Resend
-- Vercel
-- Environment variables for database, email delivery, site URL, and monitoring
-
-Production deployment uses Vercel for the web application. Production scheduling is handled by Alibaba Cloud ECS cron jobs: `crawl:notices` runs before digest delivery, `send:digest` runs at 20:00 on weekdays, and the health report runs after digest execution. No real credentials or production configuration values should be committed to this repository.
-
-## Environment Variables
-
-Copy `.env.example` for ECS-side development. For Vercel use `HITNOTICE_ECS_API_BASE_URL`, `HITNOTICE_INTERNAL_API_SECRET` and `ADMIN_CHECK_TOKEN`; do not provision Supabase service-role credentials for the canonical web runtime. See the Phase A plan before changing any deployed environment.
-
-```env
-# ECS server-only database
-DATABASE_URL=
-
-# Email service
-RESEND_API_KEY=
-EMAIL_FROM="HITnotice <notice@hitnotice.cn>"
-
-# Public site URL
-NEXT_PUBLIC_SITE_URL=
-
-# Admin and monitoring
-ADMIN_CHECK_TOKEN=
-HEALTH_REPORT_EMAIL=
-```
-
-Do not commit real environment variable values, API keys, service-role keys, or local production configuration files.
-
-## Local Development
-
-Install dependencies:
+## Local development and verification
 
 ```bash
-npm install
-```
-
-Run the development server:
-
-```bash
+npm ci
 npm run dev
 ```
 
-Run project checks:
+Run credential-free checks in a clean checkout:
 
 ```bash
+npm test
 npm run lint
+npm run typecheck
 npm run build
+npm run test:web-proxy
+npm run test:preview-safety
 ```
 
-Run the crawler without writing to the database:
+The integration tests use a local mock ECS API and a local built Next.js server. They do not call a real database, send emails, run a crawler or digest job, or create WeChat drafts. Actual PostgreSQL write tests are separate and require an explicitly isolated test database; see [PostgreSQL testing](docs/POSTGRESQL_TESTING.md).
 
-```bash
-npm run crawl:notices -- --dry-run
-```
+Do not provision production credentials just to build or test a web preview. Stage-specific scripts under `ops/` and historical Phase A–E documents are audit/runbook material, not build hooks or instructions to mutate a live environment.
 
-Generate digests without sending emails or writing delivery records:
+## Baseline records
 
-```bash
-npm run send:digest -- --dry-run --type=weekday_digest
-npm run send:digest -- --dry-run --type=weekly_digest
-```
+- [Baseline synchronization audit](docs/EDGEONE_BASELINE_AUDIT.md)
+- [Canonical PostgreSQL schema](docs/POSTGRESQL_SCHEMA_BASELINE.md)
+- [Phase B repository report](docs/PHASE_B_POSTGRESQL_REPOSITORY.md)
 
-Dry-run mode does not send email and does not write `email_deliveries` records.
+Delta digest WIP remains on its separate preservation branch and is excluded here. The dirty production root is not the source for this branch.
 
-## Version
+## Privacy and project status
 
-Current version:
+HITnotice stores email addresses and notification preferences required for subscriptions. It aggregates public notice pages and does not require student IDs, real names, phone numbers, or university account credentials.
 
-v1.0
-
-## Privacy
-
-HITnotice stores the email address and subscription preferences required to send email digests. It does not collect real names, student IDs, phone numbers, campus card numbers, or unified identity authentication information.
-
-HITnotice only aggregates publicly accessible notice pages and does not access private or login-protected content.
-
-## Disclaimer
-
-HITnotice is an independent student-developed service.
-
-It is not an official platform of Harbin Institute of Technology.
-
-All official information should be verified through university websites.
+This is an independent student project, not an official Harbin Institute of Technology platform. Verify official information through the original university sources.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT; see [LICENSE](LICENSE).

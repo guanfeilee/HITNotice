@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-06",
+  "selectedBase": "5f10504bbe41964d5e48551ee961cc14d4fdf0da",
+  "beforeAfterEquality": {
+    "rootHead": true,
+    "rootStatus": true,
+    "rootFileHashes": true,
+    "releaseFiles": true,
+    "releaseExtraFiles": true,
+    "releasePath": true,
+    "currentRelease": true,
+    "cron": true,
+    "apiState": true,
+    "rootFileCount": 211,
+    "releaseFileCount": 282,
+    "releaseVsGitExact": true
+  }
+}

@@ -76,11 +76,16 @@ export function createInternalApiClient(
 ): InternalApiRequester {
   return async <T extends Record<string, unknown>>(params: InternalApiRequest): Promise<InternalApiResult<T>> => {
     const failure = (status = 503, error = unavailable) => ({ status, body: { ok: false, error } as unknown as T });
+    const diagnostic = (category: string, details: Record<string, string | number | boolean> = {}) =>
+      console.error(JSON.stringify({ event: "internal_api_request_failed", category, ...details }));
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const { baseUrl, secret } = config();
-      if (!baseUrl || !secret || secret.length < 32) return failure();
+      if (!baseUrl || !secret || secret.length < 32) {
+        diagnostic("configuration", { baseConfigured: !!baseUrl, secretConfigured: !!secret, secretLongEnough: !!secret && secret.length >= 32 });
+        return failure();
+      }
       const base = validateInternalApiBaseUrl(baseUrl);
       const url = new URL(params.path, base);
       const method = params.method ?? "GET";
@@ -99,6 +104,7 @@ export function createInternalApiClient(
           body: body || undefined
         });
         if (!response.ok) {
+          diagnostic("upstream_status", { status: response.status });
           void response.body?.cancel().catch(() => {});
           if (response.status === 400) return failure(400, url.pathname === "/internal/unsubscribe" ? "无效的取消订阅链接。" : "请求信息无效，请检查后重试。");
           if (response.status === 404 && url.pathname === "/internal/unsubscribe") return failure(404, "无效的取消订阅链接。");
@@ -112,7 +118,14 @@ export function createInternalApiClient(
         return safe ? { status: 200, body: safe as unknown as T } : failure(502);
       })()]);
       return result;
-    } catch {
+    } catch (error) {
+      const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;
+      const code = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
+      const name = error instanceof Error ? error.name : "Unknown";
+      diagnostic("request_exception", {
+        name: ["Error", "TypeError", "RangeError", "SyntaxError", "AbortError", "TimeoutError"].includes(name) ? name : "Unknown",
+        code: typeof code === "string" && ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH", "EPIPE", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET"].includes(code) ? code : "UNAVAILABLE"
+      });
       return failure();
     } finally {
       clearTimeout(timer);
