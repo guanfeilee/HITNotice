@@ -1,3 +1,4 @@
+import { startISO, endISO } from "@/lib/digest/precision";
 import { createHash } from "node:crypto";
 import type { DigestType, DigestWindow } from "@/lib/digest/types";
 
@@ -34,7 +35,7 @@ export function createDigestIdempotencyKey(
   subscriptionId: string,
   window: DigestWindow
 ) {
-  const identity = [digestType, subscriptionId, window.start.toISOString(), window.end.toISOString()].join(":");
+  const identity = [digestType, subscriptionId, startISO(window), endISO(window)].join(":");
   return `digest/${createHash("sha256").update(identity).digest("hex")}`;
 }
 

@@ -1,3 +1,4 @@
+import { startISO, endISO } from "@/lib/digest/precision";
 import type { CrawledNotice } from "@/lib/crawler/types";
 import type { DigestWindow } from "@/lib/digest/types";
 import { query } from "./pool";
@@ -128,8 +129,8 @@ export type DigestNoticeRow = {
 export async function digestNotices(ids: string[], window: DigestWindow) {
   return (
     await query<DigestNoticeRow>(
-      "SELECT id,title,url,source_id,source_name,published_at,first_seen_at FROM notices WHERE source_id=ANY($1::text[]) AND first_seen_at >= $2 AND first_seen_at < $3 ORDER BY first_seen_at DESC",
-      [ids, window.start, window.end],
+      `SELECT id,title,url,source_id,source_name,published_at,first_seen_at FROM notices WHERE source_id=ANY($1::text[]) AND first_seen_at ${window.startInclusive === false ? ">" : ">="} $2::timestamptz AND first_seen_at ${window.endInclusive === true ? "<=" : "<"} $3::timestamptz ORDER BY first_seen_at DESC`,
+      [ids, startISO(window), endISO(window)],
     )
   ).rows;
 }

@@ -1,3 +1,4 @@
+if (process.env.HITNOTICE_TASK_MODE) throw new Error("RETRY_REQUIRES_SEPARATE_REVIEW");
 import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import {

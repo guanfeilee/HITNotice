@@ -25,9 +25,11 @@ export type HealthSourceStatus = {
   newNotices: number;
   lastError: string | null;
   crawlSuccess: boolean;
+  lastRunSucceeded?: boolean;
 };
 
 export type DigestHealthState =
+  | "paused"
   | "scheduled"
   | "running"
   | "success"
@@ -362,6 +364,7 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
           : status === "stale"
             ? "No crawler run recorded within the freshness threshold"
             : health?.errorMessage ?? "No crawl run recorded",
+      lastRunSucceeded: health ? health.status === "OK" : undefined,
       crawlSuccess: status === "healthy"
     } satisfies HealthSourceStatus;
   });
@@ -523,4 +526,21 @@ export function renderHealthReportText(report: HealthReport) {
   ];
 
   return sections.join("\n");
+}
+
+// Scheduler context is supplied by the root launcher from actual crontab bytes.
+export function applyScheduleContext(report: HealthReport, now: Date, state: string) {
+  const end = getCurrentDigestPeriodEnd(now);
+  const notDue = getDueDigestTypes(now).length === 0 || now.getTime() < end.getTime() - 15 * 60_000;
+  if (!["enabled", "paused"].includes(state)) throw new Error("SCHEDULE_STATE_UNCONFIRMED");
+  if (state === "paused" || notDue) {
+    const reason = state === "paused" ? "Workflow intentionally paused; stale data is not a failed scheduled execution" : "Crawler schedule not due yet; freshness is informational";
+    for (const d of Object.values(report.digests)) {
+      if (state === "paused" && !d.runStatus) d.status = "paused";
+      d.reason = reason + "; " + (d.reason ?? "");
+    }
+    const actualFailure = report.sources.some(s=>s.lastRunAt && s.lastRunSucceeded === false) || report.failedSources > 0 || Object.values(report.digests).some(d=>["failed","partial_success"].includes(d.runStatus ?? ""));
+    if (!actualFailure) report.overallStatus = "degraded";
+  }
+  return report;
 }

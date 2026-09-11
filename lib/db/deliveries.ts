@@ -1,3 +1,4 @@
+import { startISO, endISO } from "@/lib/digest/precision";
 import { query } from "./pool";
 import { transaction } from "./transaction";
 import { RepositoryError } from "./errors";
@@ -87,7 +88,7 @@ export async function getDigestDelivery(
     (
       await query<DeliveryRow>(
         "SELECT * FROM email_deliveries WHERE subscription_id=$1 AND digest_type=$2 AND period_start=$3 AND period_end=$4",
-        [subscriptionId, digestType, window.start, window.end],
+        [subscriptionId, digestType, startISO(window), endISO(window)],
       )
     ).rows,
   );
@@ -121,8 +122,8 @@ export async function getAcceptedDigestDeliveryWindowsBefore(
   end: Date,
 ) {
   return (
-    await query<{ period_start: string; period_end: string }>(
-      "SELECT period_start,period_end FROM email_deliveries WHERE subscription_id=$1 AND digest_type=$2 AND status=ANY($3::text[]) AND period_end<$4 ORDER BY period_end DESC",
+    await query<{ id: string; period_start: string; period_end: string; end_inclusive: boolean | null }>(
+      "SELECT id,period_start,period_end,(resend_response->>'window_end_inclusive')::boolean AS end_inclusive FROM email_deliveries WHERE subscription_id=$1 AND digest_type=$2 AND status=ANY($3::text[]) AND period_end<$4 ORDER BY period_end DESC",
       [id, type, accepted, end],
     )
   ).rows;
@@ -160,8 +161,8 @@ export async function claimDigestDelivery(params: {
     const values = [
       params.subscriptionId,
       params.digestType,
-      params.window.start,
-      params.window.end,
+      startISO(params.window),
+      endISO(params.window),
       params.noticeCount,
       key,
     ];
@@ -215,6 +216,7 @@ export async function recordDigestDeliveryAccepted(p: {
   durationMs: number;
   httpStatus: number;
   responseSummary: string;
+  windowEndInclusive?: boolean;
 }) {
   return transaction("accept_delivery", async (client) => {
     const result = await client.query<DeliveryRow>(
@@ -228,7 +230,7 @@ export async function recordDigestDeliveryAccepted(p: {
         p.attempt,
         p.durationMs,
         p.httpStatus,
-        { id: p.resendEmailId, summary: p.responseSummary },
+        { id: p.resendEmailId, summary: p.responseSummary, ...(p.windowEndInclusive === undefined ? {} : { window_end_inclusive: p.windowEndInclusive }) },
       ],
     );
     if (result.rows[0]) return;

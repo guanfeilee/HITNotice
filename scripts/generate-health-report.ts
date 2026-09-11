@@ -1,59 +1,30 @@
 import { closePool } from "@/lib/db/pool";
-import { loadEnvConfig } from "@next/env";
-import { generateHealthReport, renderHealthReportText } from "@/lib/health/report";
-import { executeHealthReportCommand } from "@/lib/health/command";
+import { generateHealthReport, applyScheduleContext } from "@/lib/health/report";
 import { sendHealthReportEmail } from "@/lib/email/resend";
-
-const defaultHealthReportEmail = "leegfei@163.com";
-
-function isDryRun() {
-  return process.argv.includes("--dry-run");
+import { checkSuppression } from "@/lib/tasks/suppression";
+import { withWorkflowLock } from "@/lib/tasks/lock";
+import { openSync, writeSync, fsyncSync, closeSync } from "node:fs";
+import { join } from "node:path";
+async function main(){
+ const dry=process.argv.includes("--dry-run");
+ if(process.argv.slice(2).some(a=>a!=="--dry-run"))throw new Error("HEALTH_ARGUMENTS_REJECTED");
+ const now=new Date();
+ const report=applyScheduleContext(await generateHealthReport(now),now,process.env.HITNOTICE_SCHEDULE_STATE ?? "paused");
+ if(dry){console.log(JSON.stringify({event:"health_preview",periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.overallStatus,sources:report.totalSources,digests:report.digests}));return;}
+ const to=process.env.HEALTH_REPORT_EMAIL?.trim();
+ if(!to||!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(to))throw new Error("HEALTH_SINGLE_RECIPIENT_REQUIRED");
+ if(await checkSuppression(to))throw new Error("HEALTH_RECIPIENT_SUPPRESSED");
+ const dir=process.env.HITNOTICE_HEALTH_STATE_DIR;
+ if(!dir)throw new Error("HEALTH_CHECKPOINT_DIRECTORY_MISSING");
+ // Date reservation, not a new current-time key on rerun: uncertain attempts never resend.
+ const file=join(dir,new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai"}).format(now)+".jsonl");
+ const fd=openSync(file,"wx",0o600);
+ const log=(v:object)=>{writeSync(fd,JSON.stringify(v)+"\n");fsyncSync(fd)};
+ try {
+  log({event:"reserved",periodEnd:report.periodEnd});
+  const r=await sendHealthReportEmail({to,report,requestOverrides:{maxAttempts:1}});
+  log({event:"accepted",id:r.id,attempt:r.attempt,http:r.httpStatus});
+  console.log(JSON.stringify({event:"health_accepted",id:r.id}));
+ }catch(e){log({event:"stopped_uncertain_or_failed"});throw e}finally{closeSync(fd)}
 }
-
-function getHealthReportEmail() {
-  return process.env.HEALTH_REPORT_EMAIL?.trim() || defaultHealthReportEmail;
-}
-
-function sanitizeError(error: unknown) {
-  const type = error instanceof Error && error.name ? error.name : "Error";
-  const message = error instanceof Error ? error.message : String(error);
-
-  return `${type}: ${message
-    .replace(/(Bearer\s+)[A-Za-z0-9._-]+/g, "$1[redacted]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
-    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 240)}`;
-}
-
-async function main() {
-  loadEnvConfig(process.cwd());
-
-  const result = await executeHealthReportCommand(
-    { dryRun: isDryRun() },
-    {
-      generate: () => generateHealthReport(),
-      renderText: renderHealthReportText,
-      send: async (report) => {
-        const to = getHealthReportEmail();
-        await sendHealthReportEmail({
-          to,
-          report
-        });
-      },
-      log: console.log
-    }
-  );
-
-  if (!result.sent) return;
-  const to = getHealthReportEmail();
-  console.log(
-    `Health report sent: to=${to.replace(/(^.).*(@.*$)/, "$1***$2")}, status=${result.report.overallStatus}, sources=${result.report.totalSources}, failed=${result.report.failedSources}, weekday=${result.report.digests.weekday_digest.status}, weekly=${result.report.digests.weekly_digest.status}`
-  );
-}
-
-main().catch((error) => {
-  console.error(`health:report failed: ${sanitizeError(error)}`);
-  process.exitCode = 1;
-}).finally(closePool);
+(process.argv.includes("--dry-run")?main():withWorkflowLock(main)).catch(e=>{console.error(JSON.stringify({event:"health_stopped",name:e.name}));process.exitCode=1}).finally(closePool);

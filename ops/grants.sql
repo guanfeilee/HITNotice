@@ -1,0 +1,20 @@
+-- Role/database administration only; no schema or business data changes.
+CREATE ROLE hitnotice_crawler_daily LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 6;
+CREATE ROLE hitnotice_digest LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 6;
+CREATE ROLE hitnotice_health LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 6;
+ALTER ROLE hitnotice_crawler_daily SET default_transaction_read_only=on;
+ALTER ROLE hitnotice_digest SET default_transaction_read_only=on;
+ALTER ROLE hitnotice_health SET default_transaction_read_only=on;
+ALTER ROLE hitnotice_crawler_daily IN DATABASE hitnotice SET default_transaction_read_only=off;
+ALTER ROLE hitnotice_digest IN DATABASE hitnotice SET default_transaction_read_only=off;
+ALTER ROLE hitnotice_health IN DATABASE hitnotice SET default_transaction_read_only=on;
+GRANT CONNECT ON DATABASE hitnotice TO hitnotice_crawler_daily,hitnotice_digest,hitnotice_health;
+GRANT USAGE ON SCHEMA public TO hitnotice_crawler_daily,hitnotice_digest,hitnotice_health;
+GRANT SELECT,INSERT ON notices,crawl_runs TO hitnotice_crawler_daily;
+GRANT UPDATE(title,url,source_name,source_id,category,published_at) ON notices TO hitnotice_crawler_daily;
+GRANT SELECT ON notices,crawl_runs,subscriptions,subscription_sources,email_deliveries,digest_runs TO hitnotice_digest,hitnotice_health;
+GRANT INSERT(subscription_id,digest_type,period_start,period_end,notice_count,idempotency_key,processing_started_at) ON email_deliveries TO hitnotice_digest;
+GRANT UPDATE(status,notice_count,processing_started_at,updated_at,resend_email_id,accepted_at,sent_at,attempt_count,last_attempt_duration_ms,http_status,resend_response,error_message,error_details) ON email_deliveries TO hitnotice_digest;
+GRANT INSERT(digest_type,period_start,period_end,metadata) ON digest_runs TO hitnotice_digest;
+GRANT UPDATE(status,finished_at,users,recipients,skipped,blocked,failed,error_message,metadata) ON digest_runs TO hitnotice_digest;
+GRANT EXECUTE ON FUNCTION public.set_updated_at() TO hitnotice_crawler_daily,hitnotice_digest;

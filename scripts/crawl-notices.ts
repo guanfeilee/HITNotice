@@ -1,3 +1,4 @@
+import { withWorkflowLock } from "@/lib/tasks/lock";
 import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
 import { fetchSourceHtml, SourceFetchError } from "@/lib/crawler/fetch";
@@ -227,9 +228,10 @@ async function main() {
   }
 
   printSummary(results);
+  if (results.some(r => r.fetchStatus !== "success" || r.writeStatus === "failed")) throw new Error("CRAWL_INCOMPLETE");
 }
 
-main().catch((error) => {
+(process.argv.includes("--dry-run") ? main() : withWorkflowLock(main)).catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`crawl:notices failed: ${message}`);
   process.exitCode = 1;

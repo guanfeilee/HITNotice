@@ -1,3 +1,5 @@
+import closedHistory from "./closed-history.json";
+import { startISO, endISO, validInstant } from "./precision";
 import { sources } from "@/lib/sources";
 import {
   formatBeijingDate,
@@ -130,8 +132,8 @@ export async function buildDigest(
   return {
     digestType,
     date: formatBeijingDate(window.end),
-    periodStart: window.start.toISOString(),
-    periodEnd: window.end.toISOString(),
+    periodStart: startISO(window),
+    periodEnd: endISO(window),
     total: notices.length,
     sources: subscribedSources,
     groups: groupNotices(notices, subscribedSources),
@@ -144,7 +146,14 @@ export async function getDigestWindowForSubscription(
   end: Date,
 ): Promise<DigestWindow> {
   const rows = await getAcceptedDigestDeliveryWindowsBefore(id, type, end);
-  return getDigestWindowFromLastSuccess(type, end, rows[0]?.period_end);
+  const anchor = rows[0];
+  const window = getDigestWindowFromLastSuccess(type, end, anchor?.period_end);
+  return { ...window,
+    startIso: anchor ? validInstant(anchor.period_end) : window.start.toISOString(),
+    endIso: end.toISOString(),
+    startInclusive: !anchor || !(anchor.end_inclusive === true || closedHistory.includes(anchor.id)),
+    endInclusive: true,
+  };
 }
 export async function getSubscriptionForRetry(id: string) {
   const row = await subscriptionForRetry(id);

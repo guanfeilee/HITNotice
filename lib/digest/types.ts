@@ -32,6 +32,10 @@ export type DigestGroup = {
 export type DigestWindow = {
   start: Date;
   end: Date;
+  startIso?: string;
+  endIso?: string;
+  startInclusive?: boolean;
+  endInclusive?: boolean;
 };
 
 export type Digest = {
