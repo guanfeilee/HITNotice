@@ -11,6 +11,7 @@ export function Footer() {
         <p>{unofficialStatement}</p>
         <div className="footer-links">
           <Link href="/about">关于</Link>
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">吉ICP备2026009213号-1</a>
         </div>
       </div>
     </footer>

@@ -18,6 +18,7 @@
 
 .footer-links {
   display: flex;
+  flex-wrap: wrap;
   gap: 14px;
   font-weight: 700;
 }

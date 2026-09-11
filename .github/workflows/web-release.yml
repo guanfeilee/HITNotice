@@ -1,0 +1,61 @@
+name: Web Linux release
+on:
+  push:
+    branches: [codex/web-ecs-migration-20260911]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: isolated-admin-only
+          POSTGRES_DB: hitnotice_test_workflow
+        ports: ['55439:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.1'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint && npm run typecheck && npm test
+      - name: Isolated database regressions
+        env:
+          NODE_ENV: test
+          ALLOW_TEST_DATABASE_RESET: '1'
+          DATABASE_URL: postgresql://hitnotice_runtime:isolated-runtime-only@127.0.0.1:55439/hitnotice_test_workflow
+          TEST_DATABASE_ADMIN_URL: postgresql://postgres:isolated-admin-only@127.0.0.1:55439/hitnotice_test_workflow
+        run: |
+          npm run test:db
+          node --import tsx scripts/test-daily-workflow.ts
+          npm run test:crawler-reliability
+          npm run test:launcher-reliability
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://hitnotice.cn
+      - name: Package immutable standalone artifact
+        run: |
+          mkdir -p web-artifact/.next
+          cp -a .next/standalone/. web-artifact/
+          cp -a .next/static web-artifact/.next/static
+          cp -a public web-artifact/public
+          python3 ops/package-web-manifest.py web-artifact
+          tar -czf hitnotice-web.tar.gz -C web-artifact .
+          sha256sum hitnotice-web.tar.gz > hitnotice-web.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitnotice-web-${{ github.sha }}
+          path: |
+            hitnotice-web.tar.gz
+            hitnotice-web.tar.gz.sha256
+          retention-days: 30
