@@ -1,6 +1,6 @@
 import { crawlSources } from "@/lib/crawler/sources";
 import type { SourceCrawlResult } from "@/lib/crawler/types";
-import { insertCrawlRunRow, selectRecentCrawlRunRows } from "@/lib/db/crawl-runs";
+import { insertCrawlRunRow, selectSourceHealthRows } from "@/lib/db/crawl-runs";
 
 export type CrawlRunStatus = "success" | "failed";
 
@@ -62,23 +62,11 @@ export async function recordCrawlRun(params: {
 }
 
 export async function getCrawlerHealth(): Promise<SourceHealth[]> {
-  const rows = await selectRecentCrawlRunRows();
-  const latestBySource = new Map<string, CrawlRunRestRow>();
-  const lastSuccessBySource = new Map<string, CrawlRunRestRow>();
-
-  for (const row of rows) {
-    if (!latestBySource.has(row.source_id)) {
-      latestBySource.set(row.source_id, row);
-    }
-
-    if (row.status === "success" && !lastSuccessBySource.has(row.source_id)) {
-      lastSuccessBySource.set(row.source_id, row);
-    }
-  }
+  const rows = await selectSourceHealthRows();
+  const latestBySource = new Map(rows.map(row => [row.source_id, row]));
 
   return crawlSources.map((source) => {
     const latest = latestBySource.get(source.id);
-    const lastSuccess = lastSuccessBySource.get(source.id);
 
     if (!latest) {
       return {
@@ -105,7 +93,7 @@ export async function getCrawlerHealth(): Promise<SourceHealth[]> {
       errorMessage: latest.error_message,
       startedAt: latest.started_at,
       finishedAt: latest.finished_at,
-      lastSuccessAt: lastSuccess?.finished_at ?? null
+      lastSuccessAt: latest.last_success_at
     };
   });
 }

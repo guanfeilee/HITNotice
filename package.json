@@ -23,7 +23,9 @@
     "check:ecs-api": "tsx scripts/check-ecs-api-health.ts",
     "test:web-proxy": "tsx scripts/test-web-proxy-integration.ts",
     "test:db": "tsx scripts/test-postgresql.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:crawler-reliability": "tsx scripts/test-crawler-reliability.ts",
+    "test:launcher-reliability": "python3 scripts/test-launcher-reliability.py"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",

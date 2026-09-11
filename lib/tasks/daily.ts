@@ -1,3 +1,4 @@
+import { freshSourceIds, FreshCrawlNotReady } from "@/lib/crawler/freshness";
 import { sources as configuredSources } from "@/lib/sources";
 import { query } from "@/lib/db/pool";
 import * as service from "@/lib/digest/service";
@@ -8,18 +9,12 @@ import { executeDigestDelivery } from "@/lib/digest/send";
 import { sendDigestEmail } from "@/lib/email/resend";
 import { checkSuppression } from "./suppression";
 import { crawlSources } from "@/lib/crawler/sources";
-import type { DigestType, DigestSubscription, Digest, DigestWindow } from "@/lib/digest/types";
+import type { DigestType, DigestSubscription, Digest } from "@/lib/digest/types";
 
 export async function assertFreshCrawl(now: Date) {
-  const end = getCurrentDigestPeriodEnd(now);
-  const earliest = new Date(end.getTime() - 15 * 60_000);
-  const rows = (await query<{source_id:string;status:string;finished_at:string}>(
-    "SELECT DISTINCT ON(source_id) source_id,status,finished_at FROM crawl_runs ORDER BY source_id,started_at DESC,id DESC"
-  )).rows;
-  for (const source of crawlSources) {
-    const r = rows.find(x => x.source_id === source.id);
-    if (!r || r.status !== "success" || Date.parse(r.finished_at) < earliest.getTime() || Date.parse(r.finished_at) > Date.now()) throw new Error("CRAWL_NOT_READY");
-  }
+  const fresh = await freshSourceIds(now);
+  const missing = crawlSources.filter(s => !fresh.has(s.id)).map(s => s.id);
+  if (missing.length) throw new FreshCrawlNotReady(missing);
 }
 export async function assertNoUnresolved(sub: string) {
   const rows = (await query("SELECT id FROM email_deliveries WHERE subscription_id=$1 AND status IN ('pending','failed') LIMIT 1", [sub])).rows;

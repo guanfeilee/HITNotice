@@ -1,3 +1,4 @@
+import { FreshCrawlNotReady } from "@/lib/crawler/freshness";
 import { closePool } from "@/lib/db/pool";
 import { withWorkflowLock } from "@/lib/tasks/lock";
 import { runDaily } from "@/lib/tasks/daily";
@@ -10,4 +11,4 @@ async function main(){
  const result=dry?await runDaily(now,true):await withWorkflowLock(()=>runDaily(now,false));
  console.log(JSON.stringify({event:"daily_summary",result}));
 }
-main().catch(e=>{console.error(JSON.stringify({event:"daily_stopped",name:e.name,message:/^[A-Z_]+$/.test(e.message)?e.message:"INSPECT_RESTRICTED_LOG"}));process.exitCode=1}).finally(closePool);
+main().catch(e=>{console.error(JSON.stringify({event:"daily_stopped",name:e.name,message:/^[A-Z_]+$/.test(e.message)?e.message:"INSPECT_RESTRICTED_LOG"}));process.exitCode=e instanceof FreshCrawlNotReady ? 10 : 1}).finally(closePool);

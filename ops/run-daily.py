@@ -17,6 +17,10 @@ if scheduled:
 manifest=json.loads((R/'ops/source-manifest.json').read_text())
 for name,digest in manifest['files'].items():
  if hashlib.sha256((R/name).read_bytes()).hexdigest()!=digest:raise SystemExit('SOURCE_MANIFEST_MISMATCH')
+sys.dont_write_bytecode=True
+import importlib.util
+_spec=importlib.util.spec_from_file_location('task_policy',pathlib.Path(__file__).with_name('task-policy.py'))
+_policy=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_policy)
 role='hitnotice_'+task+'_daily' if task=='crawler' else 'hitnotice_'+task
 cfg=pathlib.Path('/etc/hitnotice/daily')/(task+'.json')
 if cfg.stat().st_uid!=0 or cfg.stat().st_mode&0o077:raise SystemExit('CONFIG_PERMISSIONS')
@@ -51,7 +55,7 @@ with os.fdopen(fd,'w') as f:
   try:p.wait(timeout=10)
   except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
   code=124
-if code:
+if _policy.should_pause(task, code):
  pause=STATE/'PAUSED'
  if not pause.exists():pause.write_text(json.dumps({'task':task,'reason':'task_failed_review_before_resume','log':str(log),'time':now.isoformat()}));pause.chmod(0o644)
 print(json.dumps({'task':task,'exitCode':code,'log':str(log),'version':manifest['version']}));raise SystemExit(code)

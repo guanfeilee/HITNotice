@@ -1,3 +1,4 @@
+import { classifyCrawlOutcome } from "@/lib/crawler/outcome";
 import { withWorkflowLock } from "@/lib/tasks/lock";
 import { closePool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
@@ -83,6 +84,7 @@ async function crawlSource(
   upsertNotices?: typeof import("@/lib/crawler/upsert").upsertNotices
 ) {
   console.log(`Crawling ${source.name}...`);
+  let writing = false;
 
   try {
     const fetched = await fetchSourceHtml(source);
@@ -110,6 +112,7 @@ async function crawlSource(
       } satisfies SourceCrawlResult;
     }
 
+    writing = true;
     if (!upsertNotices) {
       throw new Error("Missing database writer");
     }
@@ -143,6 +146,7 @@ async function crawlSource(
       notices: normalized
     } satisfies SourceCrawlResult;
   } catch (error) {
+    if (writing) throw error;
     const message = error instanceof Error ? error.message : String(error);
     const formattedMessage = formatCrawlError(source, message);
     console.log(`Fetch/parse failed: ${formattedMessage}`);
@@ -172,7 +176,8 @@ async function recordHealthIfNeeded(result: SourceCrawlResult, startedAt: string
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`Health record skipped: source=${result.source.id}, ${message}`);
+    console.error(`Crawl record persistence failed: source=${result.source.id}, ${message}`);
+    throw error;
   }
 }
 
@@ -225,10 +230,15 @@ async function main() {
     const result = await crawlSource(source, options, upsertNotices);
     await recordHealthIfNeeded(result, startedAt, options);
     results.push(result);
+    if (result.writeStatus === "failed") throw new Error("CRAWL_WRITE_FAILED");
   }
 
   printSummary(results);
-  if (results.some(r => r.fetchStatus !== "success" || r.writeStatus === "failed")) throw new Error("CRAWL_INCOMPLETE");
+  if (!options.dryRun) {
+    const outcome = classifyCrawlOutcome(results);
+    console.log(JSON.stringify({ event: "crawler_outcome", ...outcome }));
+    if (outcome.status === "fatal") throw new Error(outcome.reason!);
+  }
 }
 
 (process.argv.includes("--dry-run") ? main() : withWorkflowLock(main)).catch((error) => {

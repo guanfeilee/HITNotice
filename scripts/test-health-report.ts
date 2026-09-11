@@ -288,7 +288,13 @@ failedCrawler[0] = {
   status: "FAIL",
   errorMessage: "HTTP 500"
 };
+const recoveredDataReport = reportFor(fridayNow, allSkipped, weeklySent, failedCrawler);
+assert.equal(recoveredDataReport.overallStatus, "degraded");
+assert.equal(recoveredDataReport.digestReadiness, "READY");
+assert.equal(recoveredDataReport.sources[0].lastError, "HTTP 500");
+failedCrawler[0].lastSuccessAt = "2026-07-23T11:50:00.000Z";
 assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).overallStatus, "failed");
+assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).digestReadiness, "NOT_READY");
 
 const partialRun = digestHealth({
   digestType: "weekday_digest",

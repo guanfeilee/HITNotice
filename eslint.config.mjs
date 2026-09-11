@@ -5,7 +5,7 @@ const eslintConfig = [
   ...nextVitals,
   ...nextTypescript,
   {
-    files: ["ops/**/*.cjs"],
+    files: ["ops/**/*.cjs", "scripts/**/*.cjs"],
     rules: { "@typescript-eslint/no-require-imports": "off" }
   },
   {

@@ -1,3 +1,4 @@
+import { isFreshSuccess } from "@/lib/crawler/freshness";
 import { noticeCounts, getDeliveriesForScheduledRun } from "@/lib/db/health";
 import { getCrawlerHealth, type SourceHealth } from "@/lib/crawler/health";
 import { crawlSources } from "@/lib/crawler/sources";
@@ -19,13 +20,15 @@ export const pendingTimeoutMs = 30 * 60 * 1000;
 export type HealthSourceStatus = {
   sourceId: string;
   sourceName: string;
-  status: "healthy" | "failed" | "stale" | "no_data";
+  status: "healthy" | "degraded" | "failed" | "stale" | "no_data";
   freshness: "fresh" | "stale" | "no_data";
   lastRunAt: string | null;
   newNotices: number;
   lastError: string | null;
   crawlSuccess: boolean;
   lastRunSucceeded?: boolean;
+  lastSuccessAt?: string | null;
+  digestReady?: boolean;
 };
 
 export type DigestHealthState =
@@ -82,6 +85,9 @@ export type HealthReport = {
   sources: HealthSourceStatus[];
   digests: Record<DigestType, HealthDigestStatus>;
   overallStatus: "healthy" | "degraded" | "failed";
+  digestReadiness?: "READY" | "NOT_READY";
+  freshSuccessSources?: number;
+  latestAttemptFailedSources?: number;
 };
 
 
@@ -342,6 +348,7 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
     const lastRunTime = lastRunAt ? new Date(lastRunAt).getTime() : Number.NaN;
     const isFresh = Number.isFinite(lastRunTime) && now.getTime() - lastRunTime <= crawlerFreshnessMs;
     const freshness = !lastRunAt ? "no_data" : isFresh ? "fresh" : "stale";
+    const digestReady = isFreshSuccess(health?.lastSuccessAt ?? null, now, now);
     const status =
       freshness === "no_data"
         ? "no_data"
@@ -349,7 +356,7 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
           ? "stale"
           : health?.status === "OK"
             ? "healthy"
-            : "failed";
+            : digestReady ? "degraded" : "failed";
 
     return {
       sourceId: source.id,
@@ -364,6 +371,8 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
           : status === "stale"
             ? "No crawler run recorded within the freshness threshold"
             : health?.errorMessage ?? "No crawl run recorded",
+      lastSuccessAt: health?.lastSuccessAt ?? null,
+      digestReady,
       lastRunSucceeded: health ? health.status === "OK" : undefined,
       crawlSuccess: status === "healthy"
     } satisfies HealthSourceStatus;
@@ -375,13 +384,15 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
   const noDataSources = sources.filter((source) => source.status === "no_data").length;
   const totalNewNotices = sources.reduce((sum, source) => sum + source.newNotices, 0);
   const digestStatuses = Object.values(input.digests);
+  const freshSuccessSources = sources.filter(source => source.digestReady).length;
+  const latestAttemptFailedSources = sources.filter(source => source.lastRunSucceeded === false).length;
   const overallStatus =
     failedSources > 0 ||
     staleSources > 0 ||
     noDataSources > 0 ||
     digestStatuses.some((digest) => ["failed", "missing"].includes(digest.status))
       ? "failed"
-      : digestStatuses.some((digest) => ["partial_success", "running"].includes(digest.status))
+      : sources.some(source => source.status === "degraded") || digestStatuses.some((digest) => ["partial_success", "running"].includes(digest.status))
         ? "degraded"
         : "healthy";
 
@@ -398,7 +409,10 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
     totalNewNotices,
     sources,
     digests: input.digests,
-    overallStatus
+    overallStatus,
+    freshSuccessSources,
+    latestAttemptFailedSources,
+    digestReadiness: freshSuccessSources === sources.length && sources.length > 0 ? "READY" : "NOT_READY"
   };
 }
 
@@ -475,6 +489,7 @@ export function renderHealthReportText(report: HealthReport) {
     report.date,
     "",
     `Crawler: ${report.successfulSources} healthy, ${report.failedSources} failed, ${report.staleSources} stale, ${report.noDataSources} no data`,
+    `Digest readiness: ${report.digestReadiness ?? "NOT_READY"}; fresh success: ${report.freshSuccessSources ?? 0}; latest attempt failed: ${report.latestAttemptFailedSources ?? 0}`,
     `Weekday: ${report.digests.weekday_digest.status}, ${report.digests.weekday_digest.users} users, ${report.digests.weekday_digest.recipients} recipients, ${report.digests.weekday_digest.skipped} skipped`,
     `Weekly: ${report.digests.weekly_digest.status}, ${report.digests.weekly_digest.users} users, ${report.digests.weekly_digest.recipients} recipients, ${report.digests.weekly_digest.skipped} skipped`,
     `Overall: ${report.overallStatus}`,
@@ -500,6 +515,10 @@ export function renderHealthReportText(report: HealthReport) {
       "",
       "Last crawl:",
       displayTime(source.lastRunAt),
+      "Last success:",
+      displayTime(source.lastSuccessAt ?? null),
+      "Digest readiness:",
+      source.digestReady ? "READY" : "NOT_READY",
       "",
       "Status:",
       source.status,

@@ -26,3 +26,16 @@ export async function selectRecentCrawlRunRows(limit = 500) {
     )
   ).rows;
 }
+
+// Latest attempt and last successful completion must remain independently observable.
+export async function selectSourceHealthRows() {
+  return (await query<CrawlRunRestRow & { last_success_at: string | null }>(`
+    SELECT latest.*, success.last_success_at FROM (
+      SELECT DISTINCT ON(source_id) source_id,source_name,started_at,finished_at,status,http_status,found_count,new_count,error_message
+      FROM crawl_runs ORDER BY source_id,started_at DESC,id DESC
+    ) latest LEFT JOIN (
+      SELECT source_id,max(finished_at) AS last_success_at FROM crawl_runs
+      WHERE status='success' AND finished_at <= now() GROUP BY source_id
+    ) success USING(source_id)
+  `)).rows;
+}

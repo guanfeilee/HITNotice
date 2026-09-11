@@ -32,6 +32,8 @@ function renderSourceRows(report: HealthReport) {
         <tr>
           <td colspan="4" style="padding: 0 0 12px; color: #666666; font-size: 13px; word-break: break-word;">
             Last crawl: ${escapeHtml(displayTime(source.lastRunAt))}<br>
+            Last success: ${escapeHtml(displayTime(source.lastSuccessAt ?? null))}<br>
+            Digest readiness: ${source.digestReady ? "READY" : "NOT_READY"}<br>
             Error: ${escapeHtml(source.lastError ?? "None")}
           </td>
         </tr>
@@ -75,7 +77,7 @@ export function renderHealthReportEmail(report: HealthReport, siteUrl: string) {
     <p style="margin: 8px 0 22px; color: #666666; font-size: 14px;">统计窗口：${escapeHtml(formatBeijingDateTime(report.periodStart))} - ${escapeHtml(formatBeijingDateTime(report.periodEnd))}</p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" bgcolor="#faf8f3" style="width: 100%; border-collapse: collapse; background: #faf8f3; border: 1px solid #ded8cc; border-radius: 12px;">
-      <tr><td style="padding: 16px; color: #222222;"><strong>Overall: ${escapeHtml(report.overallStatus)}</strong></td></tr>
+      <tr><td style="padding: 16px; color: #222222;"><strong>Overall: ${escapeHtml(report.overallStatus)}</strong><br>Digest readiness: ${report.digestReadiness ?? "NOT_READY"}; fresh success: ${report.freshSuccessSources ?? 0}; latest attempt failed: ${report.latestAttemptFailedSources ?? 0}</td></tr>
       <tr><td style="padding: 0 16px 8px; color: #222222;">Crawler: ${report.successfulSources} healthy, ${report.failedSources} failed, ${report.staleSources} stale, ${report.noDataSources} no data</td></tr>
       <tr><td style="padding: 0 16px 8px; color: #222222;">Weekday: ${escapeHtml(weekday.status)}, ${weekday.users} users, ${weekday.recipients} recipients, ${weekday.skipped} skipped</td></tr>
       <tr><td style="padding: 0 16px 16px; color: #222222;">Weekly: ${escapeHtml(weekly.status)}, ${weekly.users} users, ${weekly.recipients} recipients, ${weekly.skipped} skipped</td></tr>
