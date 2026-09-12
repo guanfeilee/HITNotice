@@ -27,7 +27,8 @@
     "test:crawler-reliability": "tsx scripts/test-crawler-reliability.ts",
     "test:launcher-reliability": "python3 scripts/test-launcher-reliability.py",
     "test:pause-health": "tsx scripts/test-pause-health.ts && node scripts/test-pause-guard.cjs",
-    "test:service-isolation": "tsx scripts/test-service-isolation.ts"
+    "test:service-isolation": "tsx scripts/test-service-isolation.ts",
+    "test:f01-f03": "tsx scripts/test-f01-f03.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",

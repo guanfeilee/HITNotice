@@ -7,7 +7,7 @@ import { startISO, endISO } from "@/lib/digest/precision";
 import { claimScheduledDigestRun, finishDigestRun, createEmptyDigestRunStats } from "@/lib/digest/runs";
 import { executeDigestDelivery } from "@/lib/digest/send";
 import { sendDigestEmail } from "@/lib/email/resend";
-import { checkSuppression } from "./suppression";
+import { checkSuppression, SuppressionLookupError } from "./suppression";
 import { crawlSources } from "@/lib/crawler/sources";
 import type { DigestType, DigestSubscription, Digest } from "@/lib/digest/types";
 
@@ -16,10 +16,7 @@ import type { DigestType, DigestSubscription, Digest } from "@/lib/digest/types"
 export class DailyPreflightDeferred extends Error {
   constructor(reason: string) { super(reason); this.name = "DailyPreflightDeferred"; }
 }
-const deferrablePreflightErrors = new Set([
-  "SUPPRESSION_LOOKUP_UNCERTAIN", "SUPPRESSION_INVALID_RESPONSE",
-  "SUPPRESSION_LOOKUP_UNCONFIRMED", "SUBSCRIPTION_CHANGED_BEFORE_SEND",
-]);
+class SafeTypePreflightFailure extends Error {}
 
 export async function assertFreshCrawl(now: Date) {
   const fresh = await freshSourceIds(now);
@@ -56,9 +53,11 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
   const sleep=options.sleep ?? (ms=>new Promise(r=>setTimeout(r,ms)));
   if (!dryRun) await (options.checkCrawl ?? assertFreshCrawl)(now);
   const summaries=[];
+  let deferred = false;
   for(const type of getDueDigestTypes(now)) {
     const end=getCurrentDigestPeriodEnd(now), stats=createEmptyDigestRunStats();
     let runId:string|undefined;
+    let deliveryInProgress = false;
     if(!dryRun){
       const claim=await claimScheduledDigestRun({digestType:type,window:getDefaultDigestWindow(type,end)});
       if(!claim.claimed){if(claim.run.status!=="success")throw new Error("EXISTING_RUN_REQUIRES_REVIEW");summaries.push({type,duplicate:true});continue;} runId=claim.run.id;
@@ -67,7 +66,13 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
       const subs=await service.getActiveDigestSubscriptions(type);stats.users=subs.length;
       for(const s of subs){
         await sleep(dryRun?650:3000);
-        const p=await prepareSubscriber(s,type,end,suppression);
+        const p=await prepareSubscriber(s,type,end,async email=>{
+          try { return await suppression(email); }
+          catch(e) {
+            if(e instanceof SuppressionLookupError) throw new SafeTypePreflightFailure(e.message);
+            throw e;
+          }
+        });
         if(p.kind!=="ready"){
           if(p.kind==="blocked")stats.blocked++;else stats.skipped++;
           console.log(JSON.stringify({event:"daily_preflight",subscription:s.id,type,action:p.kind,start:p.kind==="empty"?startISO(p.window):undefined,end:end.toISOString()}));continue;
@@ -77,13 +82,15 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
         // Recheck subscription and sources after provider latency and immediately before claim/request.
         const fresh=await service.getSubscriptionForRetry(s.id);
         const sources=await service.getSubscriptionSources(s.id);
-        if(!fresh || fresh.status!=="active" || fresh.frequency!==type || fresh.email!==s.email || sources.map(x=>x.id).sort().join()!==p.digest.sources.map(x=>x.id).sort().join()) throw new Error("SUBSCRIPTION_CHANGED_BEFORE_SEND");
+        if(!fresh || fresh.status!=="active" || fresh.frequency!==type || fresh.email!==s.email || sources.map(x=>x.id).sort().join()!==p.digest.sources.map(x=>x.id).sort().join()) throw new SafeTypePreflightFailure("SUBSCRIPTION_CHANGED_BEFORE_SEND");
+        deliveryInProgress = true;
         const result=await executeDigestDelivery({subscription:s,digest:p.digest,window:p.window},{
           claim:service.claimDigestDelivery,
           send:({subscription,digest,deliveryId,idempotencyKey})=>send(subscription,digest,deliveryId,idempotencyKey),
           recordAccepted:v=>service.recordDigestDeliveryAccepted({...v,windowEndInclusive:true}),recordFailed:service.recordDigestDeliveryFailure
         });
         if(result.status!=="accepted")throw new Error("DELIVERY_NOT_ACCEPTED_STOP");
+        deliveryInProgress = false;
         stats.accepted++;
       }
       if(runId)await finishDigestRun({runId,status:"success",stats});
@@ -91,9 +98,14 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
     } catch(e) {
       stats.failed++;
       if(runId)await finishDigestRun({runId,status:stats.accepted?"partial_success":"failed",stats,errorMessage:"Daily workflow stopped; inspect restricted evidence before retry"});
-      if (e instanceof Error && deferrablePreflightErrors.has(e.message)) throw new DailyPreflightDeferred(e.message);
+      if (e instanceof SafeTypePreflightFailure && !deliveryInProgress) {
+        deferred = true;
+        console.log(JSON.stringify({event:"daily_type_outcome",type,outcome:"safe_type_failure",reason:e.message}));
+        continue;
+      }
       throw e;
     }
   }
+  if(deferred) throw new DailyPreflightDeferred("SAFE_TYPE_PREFLIGHT_FAILURE");
   return summaries;
 }

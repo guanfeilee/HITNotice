@@ -1,94 +1,44 @@
-if (process.env.HITNOTICE_TASK_MODE) throw new Error("RETRY_REQUIRES_SEPARATE_REVIEW");
-import { closePool } from "@/lib/db/pool";
+import { closePool, getPool } from "@/lib/db/pool";
 import { loadEnvConfig } from "@next/env";
-import {
-  buildDigest,
-  claimDigestDelivery,
-  getDigestDeliveryById,
-  getDigestDeliveryForPeriod,
-  getLatestPermanentDeliveryBlock,
-  getSubscriptionForRetry,
-  recordDigestDeliveryAccepted,
-  recordDigestDeliveryFailure
-} from "@/lib/digest/service";
-import { executeDigestDelivery } from "@/lib/digest/send";
-import { getRetryDecision, parseDigestRetryArgs } from "@/lib/digest/retry";
 import { maskEmail } from "@/lib/email/error-details";
-import { sendDigestEmail } from "@/lib/email/resend";
-import type { DigestWindow } from "@/lib/digest/types";
-
-async function resolveTarget(options: ReturnType<typeof parseDigestRetryArgs>) {
-  const delivery = options.deliveryId
-    ? await getDigestDeliveryById(options.deliveryId)
-    : null;
-  const subscriptionId = options.subscriptionId ?? delivery?.subscriptionId ?? null;
-  if (!subscriptionId) throw new Error("Delivery was not found");
-
-  const subscription = await getSubscriptionForRetry(subscriptionId);
-  if (!subscription) throw new Error("Subscription was not found");
-
-  const resolvedDelivery =
-    delivery ??
-    (options.periodEnd
-      ? await getDigestDeliveryForPeriod(subscription.id, subscription.frequency, options.periodEnd)
-      : null);
-  if (!resolvedDelivery) throw new Error("Failed delivery was not found for the requested subscription and period");
-
-  return { subscription, delivery: resolvedDelivery };
-}
 
 async function main() {
+  const args = process.argv.slice(2);
+  // Refuse before loading configuration or opening a database connection.
+  if (args.some(a => a === "--confirm-send" || a.startsWith("--confirm-send="))) {
+    throw new Error("UNSAFE_LEGACY_RETRY_DISABLED");
+  }
+  if (process.env.HITNOTICE_TASK_MODE) throw new Error("RETRY_REQUIRES_SEPARATE_REVIEW");
+  const values = new Map<string,string>();
+  for (let i=0;i<args.length;i++) {
+    if(args[i]==="--dry-run") continue;
+    const [key,...inline]=args[i].split("=");
+    if(!["--delivery-id","--subscription-id","--period-end"].includes(key) || values.has(key)) throw new Error("REVIEW_ARGUMENTS_REJECTED");
+    const value=inline.length?inline.join("="):args[++i];
+    if(!value || value.startsWith("--")) throw new Error("REVIEW_ARGUMENTS_REJECTED");
+    values.set(key,value);
+  }
+  const id=values.get("--delivery-id"), sub=values.get("--subscription-id"), end=values.get("--period-end");
+  if(!((id&&!sub&&!end)||(!id&&sub&&end))) throw new Error("REVIEW_TARGET_REQUIRED");
   loadEnvConfig(process.cwd());
-  const options = parseDigestRetryArgs(process.argv.slice(2));
-  const { subscription, delivery } = await resolveTarget(options);
-  const permanentBlock = await getLatestPermanentDeliveryBlock(subscription.id);
-  const decision = getRetryDecision({
-    deliveryStatus: permanentBlock?.status ?? delivery.status,
-    resendEmailId: delivery.resendEmailId,
-    subscriptionStatus: subscription.status
-  });
-  const window: DigestWindow = {
-    start: new Date(delivery.periodStart),
-    end: new Date(delivery.periodEnd)
-  };
-  const digest = await buildDigest(subscription.id, subscription.frequency, window);
-
-  console.log(`Mode: ${options.confirmSend ? "confirm-send" : "dry-run"}`);
-  console.log(`Email: ${maskEmail(subscription.email)}`);
-  console.log(`Subscription ID: ${subscription.id}`);
-  console.log(`Delivery ID: ${delivery.id}`);
-  console.log(`Period start: ${delivery.periodStart}`);
-  console.log(`Period end: ${delivery.periodEnd}`);
-  console.log(`Notices: ${digest.total}`);
-  console.log(`Current status: ${delivery.status}`);
-  console.log(`Permanent delivery block: ${permanentBlock?.status ?? "none"}`);
-  console.log(`Resend email ID exists: ${Boolean(delivery.resendEmailId)}`);
-  console.log(`Retry allowed: ${decision.allowed}`);
-  console.log(`Decision reason: ${decision.reason}`);
-
-  if (!options.confirmSend) return;
-  if (!decision.allowed) throw new Error(`Retry refused: ${decision.reason}`);
-
-  const result = await executeDigestDelivery({ subscription, digest, window }, {
-    claim: claimDigestDelivery,
-    send: ({ subscription: current, digest: currentDigest, deliveryId, idempotencyKey }) =>
-      sendDigestEmail({
-        to: current.email,
-        digest: currentDigest,
-        unsubscribeToken: current.unsubscribeToken,
-        subscriptionId: current.id,
-        deliveryId,
-        idempotencyKey
-      }),
-    recordAccepted: recordDigestDeliveryAccepted,
-    recordFailed: recordDigestDeliveryFailure
-  });
-
-  if (result.status !== "accepted") throw new Error(`Retry did not send: ${result.reason ?? result.status}`);
-  console.log(`Retry accepted: delivery=${result.deliveryId} resend_email_id=${result.resendEmailId}`);
+  const c=await getPool().connect();
+  try {
+    await c.query("BEGIN READ ONLY");
+    // Raw PostgreSQL strings remain unchanged; never reconstruct a digest or its identity.
+    const result=await c.query(id ?
+      "SELECT d.id,d.subscription_id,d.digest_type,d.period_start,d.period_end,d.status,(d.resend_email_id IS NOT NULL) AS provider_id_present,s.email FROM email_deliveries d JOIN subscriptions s ON s.id=d.subscription_id WHERE d.id=$1" :
+      "SELECT d.id,d.subscription_id,d.digest_type,d.period_start,d.period_end,d.status,(d.resend_email_id IS NOT NULL) AS provider_id_present,s.email FROM email_deliveries d JOIN subscriptions s ON s.id=d.subscription_id WHERE d.subscription_id=$1 AND d.period_end=$2::timestamptz LIMIT 2",
+      id?[id]:[sub,end]);
+    if(result.rows.length!==1) throw new Error("REVIEW_TARGET_MISSING_OR_AMBIGUOUS");
+    const {email,...delivery}=result.rows[0];
+    await c.query("COMMIT");
+    console.log(JSON.stringify({mode:"review-only",...delivery,email:maskEmail(email),resendAllowed:false,providerState:"not_determined"}));
+    console.log("UNSAFE_LEGACY_RETRY_DISABLED");
+    console.log("Provider state must be reviewed manually before any resend decision.");
+  } catch(e) { await c.query("ROLLBACK").catch(()=>{}); throw e; }
+  finally { c.release(); }
 }
-
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+main().catch(e=>{
+  console.error(e instanceof Error && /^[A-Z_]+$/.test(e.message) ? e.message : "REVIEW_FAILED");
+  process.exitCode=1;
 }).finally(closePool);

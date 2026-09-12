@@ -60,4 +60,15 @@ This is permission to attempt reporting, not an out-of-band availability guarant
 
 Archive the tested commit into a new immutable task release, generate its source manifest, reuse pinned Linux dependencies, verify all files and atomically switch daily-current. Keep cron, API/Web releases, API write-mode and credentials, database settings and historical records unchanged. Deployment verification does not manually execute production crawler, digest or health.
 
-Digest exit 11 is limited to an explicit allowlist of confirmed pre-delivery-claim eligibility failures. The failed/partial run is still recorded and cannot be automatically replayed at the same cutoff; a later scheduled cutoff can catch up from persisted accepted windows. Failure to persist the run status, pending/failed deliveries, send/writeback uncertainty and all unclassified exceptions remain fatal. No historical row is reset and no automatic send retry is added.
+Digest exit 11 is limited to typed, confirmed pre-delivery-claim eligibility failures. The failed/partial run is still recorded and cannot be automatically replayed at the same cutoff; a later scheduled cutoff can catch up from persisted accepted windows. Failure to persist the run status, pending/failed deliveries, send/writeback uncertainty and all unclassified exceptions remain fatal. No historical row is reset and no automatic send retry is added.
+
+
+## Friday isolation and legacy retry
+
+A safely isolated preflight failure records that digest type as failed/partial and allows the next due type to execute. Friday weekday failure therefore need not suppress weekly. After all safe types are processed, exit 11 reports the failure without creating global PAUSED. Health can show weekday failed alongside weekly success.
+
+Shared crawl readiness remains global (exit 10 before either type sends). Provider ambiguity, delivery/run persistence failure and unclassified exceptions stop the entire workflow. Even definite provider rejection remains conservatively fatal in this version; it is not inferred safe from error text. No windows or idempotency rules change.
+
+`npm run digest:retry -- --delivery-id <id>` is review-only. It reads raw stored timestamps and masked recipient information, never rebuilds a digest or writes a delivery. `--confirm-send` fails with `UNSAFE_LEGACY_RETRY_DISABLED` before any connection. Missing provider ID does not prove that a message was unsent: provider state must be reviewed manually before any resend decision.
+
+`npm run test:f01-f03` requires the same isolated PostgreSQL environment as the daily workflow suite. It covers Friday safe versus fatal failures, health visibility, and the actual review-only CLI with zero real network requests.
