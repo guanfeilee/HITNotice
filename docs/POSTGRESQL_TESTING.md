@@ -25,3 +25,10 @@ The opted-in suite **drops/recreates the test public schema**, provisions test r
 `npm test` is offline unit/security/business regression, including mock mail delivery and retry dry-run protection. `test:web-proxy` starts built Next.js and a mock signed API on loopback, with no database/email credentials. `test:db` uses the actual PostgreSQL repositories, mocked Resend, real concurrent connections, constraints, rollback, serialization failure and deadlock. It never imports a production sender CLI. Final performance output is `POSTGRESQL_TEST_RESULTS.json`; these single-machine sanity timings are not a latency SLO or production capacity guarantee.
 
 After testing, stop the disposable container with `docker stop hitnotice-phase-b-test`. It contains only the empty schema/test roles after successful cleanup. To rerun it later, use `docker start hitnotice-phase-b-test`; the suite recreates its schema. No production setup command is authorized by this testing guide.
+
+
+## Pause/health and crawler regression suite
+
+For the daily/crawler suites use a dedicated disposable PostgreSQL 17 container bound to `127.0.0.1:55439`, database `hitnotice_test_workflow`. Run `test:db` first to provision the isolated schema/roles, followed by `node --import tsx scripts/test-daily-workflow.ts` and `npm run test:crawler-reliability` with the same test-only environment. Never use a production URL.
+
+The daily suite includes the actual paused health CLI and guard, with a temporary checkpoint directory and mocked Resend. `npm run test:pause-health` and `npm run test:launcher-reliability` require no database. After build, `npm run test:service-isolation` checks local API/web failure boundaries without crashing deployed services.

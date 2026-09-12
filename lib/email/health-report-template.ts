@@ -72,6 +72,8 @@ export function renderHealthReportEmail(report: HealthReport, siteUrl: string) {
   const weekday = report.digests.weekday_digest;
   const weekly = report.digests.weekly_digest;
   const contentHtml = `
+    ${report.workflow ? `<p>Workflow: <strong>${escapeHtml(report.workflow.scheduleState)}</strong></p>` : ""}
+    ${report.workflow?.pause ? `<p>${Object.entries(report.workflow.pause).map(([key, value]) => `Pause ${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</p>` : ""}
     <p style="margin: 0; color: #222222; font-size: 16px;">日期：${escapeHtml(report.date)}</p>
     <p style="margin: 8px 0 0; color: #222222; font-size: 16px;">系统状态：<strong>${escapeHtml(report.overallStatus)}</strong></p>
     <p style="margin: 8px 0 22px; color: #666666; font-size: 14px;">统计窗口：${escapeHtml(formatBeijingDateTime(report.periodStart))} - ${escapeHtml(formatBeijingDateTime(report.periodEnd))}</p>

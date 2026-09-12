@@ -72,6 +72,7 @@ export type HealthDigestStatus = {
 };
 
 export type HealthReport = {
+  workflow?: { scheduleState: "enabled" | "paused"; pause: PauseContext | null };
   title: string;
   date: string;
   periodStart: string;
@@ -89,6 +90,19 @@ export type HealthReport = {
   freshSuccessSources?: number;
   latestAttemptFailedSources?: number;
 };
+
+export type PauseContext = { task: string; reason: string; time: string; log: string };
+
+export function parsePauseContext(raw: string | undefined): PauseContext | null {
+  if (!raw || raw === "null") return null;
+  try {
+    const value = JSON.parse(raw);
+    if (value && ["task", "reason", "time", "log"].every(k => typeof value[k] === "string" && value[k].length <= 256)) {
+      return { task: value.task, reason: value.reason, time: value.time, log: value.log };
+    }
+  } catch { /* Report missing metadata instead of silencing health. */ }
+  return { task: "unknown", reason: "pause_metadata_unavailable", time: "unknown", log: "unavailable" };
+}
 
 
 export type EmailDeliveryHealthRow = {
@@ -493,6 +507,8 @@ export function renderHealthReportText(report: HealthReport) {
     `Weekday: ${report.digests.weekday_digest.status}, ${report.digests.weekday_digest.users} users, ${report.digests.weekday_digest.recipients} recipients, ${report.digests.weekday_digest.skipped} skipped`,
     `Weekly: ${report.digests.weekly_digest.status}, ${report.digests.weekly_digest.users} users, ${report.digests.weekly_digest.recipients} recipients, ${report.digests.weekly_digest.skipped} skipped`,
     `Overall: ${report.overallStatus}`,
+    ...(report.workflow ? [`Workflow: ${report.workflow.scheduleState}`] : []),
+    ...(report.workflow?.pause ? Object.entries(report.workflow.pause).map(([k, v]) => `Pause ${k}: ${v}`) : []),
     "",
     "================================",
     "",
@@ -548,12 +564,13 @@ export function renderHealthReportText(report: HealthReport) {
 }
 
 // Scheduler context is supplied by the root launcher from actual crontab bytes.
-export function applyScheduleContext(report: HealthReport, now: Date, state: string) {
+export function applyScheduleContext(report: HealthReport, now: Date, state: string, pause: PauseContext | null = null) {
   const end = getCurrentDigestPeriodEnd(now);
   const notDue = getDueDigestTypes(now).length === 0 || now.getTime() < end.getTime() - 15 * 60_000;
   if (!["enabled", "paused"].includes(state)) throw new Error("SCHEDULE_STATE_UNCONFIRMED");
+  report.workflow = { scheduleState: state as "enabled" | "paused", pause };
   if (state === "paused" || notDue) {
-    const reason = state === "paused" ? "Workflow intentionally paused; stale data is not a failed scheduled execution" : "Crawler schedule not due yet; freshness is informational";
+    const reason = state === "paused" ? (pause ? `Workflow paused: ${pause.reason}` : "Workflow schedule disabled or incomplete") : "Crawler schedule not due yet; freshness is informational";
     for (const d of Object.values(report.digests)) {
       if (state === "paused" && !d.runStatus) d.status = "paused";
       d.reason = reason + "; " + (d.reason ?? "");

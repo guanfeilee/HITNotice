@@ -1,4 +1,4 @@
-> Historical Supabase deployment guide. For Phase B source, use [PostgreSQL report](PHASE_B_POSTGRESQL_REPOSITORY.md) and [canonical schema](POSTGRESQL_SCHEMA_BASELINE.md). Do not apply the historical migration/deployment commands to PostgreSQL. No production cutover has occurred.
+> Historical pre-ECS/Supabase email deployment guide. For the current production architecture and pause policy, use [README](../README.md) and [pause policy](PAUSE_POLICY.md). The commands and stage-specific status below are historical records, not current deployment instructions.
 
 # HITnotice Email Production Guide
 

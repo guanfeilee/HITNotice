@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { applyScheduleContext, buildDigestHealthStatus, buildHealthReport, parsePauseContext, renderHealthReportText } from '@/lib/health/report';
+import { renderHealthReportEmail } from '@/lib/email/health-report-template';
+const now=new Date('2026-09-11T12:10:00Z');
+const digest=(digestType:'weekday_digest'|'weekly_digest')=>buildDigestHealthStatus({digestType,now,schedule:{scheduled:false,window:null},run:null,deliveries:[],webhookTracking:false});
+const pause={task:'crawler',reason:'CRAWL_SYSTEMIC_SOURCE_FAILURE',time:'2026-09-11T19:50:00+08:00',log:'/var/lib/hitnotice-daily/logs/fixture.log'};
+const report=applyScheduleContext(buildHealthReport({now,crawlerHealth:[],noticeCounts:new Map(),digests:{weekday_digest:digest('weekday_digest'),weekly_digest:digest('weekly_digest')}}),now,'paused',parsePauseContext(JSON.stringify(pause)));
+assert.deepEqual(report.workflow,{scheduleState:'paused',pause});
+for(const output of [renderHealthReportText(report),renderHealthReportEmail(report,'https://example.invalid')])for(const text of ['paused',...Object.values(pause)])assert.ok(output.includes(text));
+assert.notEqual(report.overallStatus,'healthy');
+assert.equal(parsePauseContext('null'),null);assert.equal(parsePauseContext(undefined),null);
+for(const invalid of ['not json','[]','{"task":4}'])assert.equal(parsePauseContext(invalid)?.reason,'pause_metadata_unavailable');
+const escaped=structuredClone(report);escaped.workflow!.pause!.reason='<script>alert(1)</script>';
+assert.ok(!renderHealthReportEmail(escaped,'https://example.invalid').includes('<script>'));
+console.log('PASS paused workflow metadata in text and HTML, malformed metadata fallback, HTML escaping');

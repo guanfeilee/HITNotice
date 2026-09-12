@@ -8,7 +8,7 @@ The primary and backup remain full crawls at 19:45 and 19:50 Beijing time. No so
 - At least 25% of selected sources failing (7 of the current 26) is systemic and fatal. This conservative fixed threshold is explicit and tested; it is not a claim that every correlated outage starts at exactly 25%.
 - Any notice write failure/uncertainty, crawl-record persistence failure, uncaught exception, database/lock failure or process crash remains fatal. The launcher preserves its global pause behavior for fatal child exits. Pre-launch configuration/date/manifest rejection remains fail-closed as before.
 - Digest checks for a successful crawl for every enabled source with `finished_at >= today's 19:45` and `finished_at <= actual now`. A later failed attempt does not erase earlier success.
-- `FreshCrawlNotReady` occurs before digest run/recipient/delivery claims. Its dedicated digest-only exit code 10 refuses sending without creating a global pause. All other digest nonzero exits continue to pause, including uncertain submission/writeback. Code 10 from crawler is still fatal.
+- `FreshCrawlNotReady` occurs before digest run/recipient/delivery claims. Its dedicated digest-only exit code 10 refuses sending without creating a global pause. Digest-only exit 11 also refuses confirmed pre-claim suppression/subscription-change failures without a global pause. Other digest nonzero exits continue to pause, including uncertain submission/writeback. Codes 10/11 from crawler are still fatal.
 
 ## Health
 
@@ -20,7 +20,7 @@ The workflow advisory lock, source subscriptions, accepted-window microsecond pr
 
 ## Deferred work
 
-Health still shares the global PAUSED launcher/POST guard. Allowing a health-only exception safely needs coordinated guard and alert-delivery testing; it is not changed here. Fatal failures can therefore still prevent health mail. The four-cron schedule metadata heuristic also remains unchanged; restoring the four intended lines returns it to enabled.
+Health now bypasses the global PAUSED launcher/POST gate, retains its strict envelope and daily checkpoint, and reports pause metadata. Its own failure never creates or overwrites global PAUSED. See [pause policy](PAUSE_POLICY.md) for tests and availability limits. The four-cron schedule metadata heuristic remains unchanged.
 
 Targeted retry is a later optimization: retain full backup now to avoid adding persistent primary/backup identity or time-dependent source filtering. A future targeted retry should select sources lacking a success inside the same digest freshness window and preserve failed attempts as independent health signals.
 
@@ -33,6 +33,6 @@ Targeted retry is a later optimization: retain full backup now to avoid adding p
 
 ## Release procedure
 
-Build an immutable Git-commit archive, generate `ops/source-manifest.json` with SHA-256 for every tracked file and version equal to the fix commit, and stage a new `/opt/hitnotice-tasks/releases/<commit>` directory. Reuse the existing pinned Linux dependencies. Verify all hashes, run only the read-only `--check` preflights under all three task identities, and atomically switch `daily-current` when no task is running and well before the evening schedule. Restore only the commented 19:50 line, verifying every other crontab byte remains identical. Do not run production crawler/digest/health as a deployment test.
+Build an immutable Git-commit archive, generate `ops/source-manifest.json` with SHA-256 for every tracked file and version equal to the fix commit, and stage a new `/opt/hitnotice-tasks/releases/<commit>` directory. Reuse the existing pinned Linux dependencies. Verify all hashes and the existing launcher configuration, and atomically switch `daily-current` when no task is running and well before the evening schedule. Keep all four crontab entries unchanged. Do not run production crawler/digest/health as a deployment test.
 
-Rollback is a separate controlled action: inspect any current task/PAUSED/delivery evidence first; atomically point back to the preserved previous release and disable only 19:50 again. Never clear PAUSED/history or overwrite the old working directory to roll back.
+Rollback is a separate controlled action: inspect any current task/PAUSED/delivery evidence first; atomically point back to the preserved previous release without changing cron. Never clear PAUSED/history or overwrite the old working directory to roll back.

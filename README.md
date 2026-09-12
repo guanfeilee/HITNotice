@@ -1,193 +1,135 @@
 # HITnotice
 
-> Phase B source baseline (not deployed): signed ECS API and CLI jobs use PostgreSQL repositories. Production remains unchanged and cron stays paused. Start with [Phase B report](docs/PHASE_B_POSTGRESQL_REPOSITORY.md) and [schema/test setup](docs/POSTGRESQL_SCHEMA_BASELINE.md); Phase A and historical deployment sections are prior-stage records, not instructions to deploy this branch.
+A student-developed service that collects public Harbin Institute of Technology announcements and sends personalized email summaries.
 
-
-A campus notification aggregation and email alert service for Harbin Institute of Technology.
-
-## Overview
-
-HITnotice automatically collects publicly available campus announcements from multiple official sources and delivers personalized email summaries. Users can choose between `weekday_digest` and `weekly_digest`: weekday summaries are sent at 20:00 from Monday to Friday, while weekly summaries are sent at 20:00 every Friday.
-
-The service focuses on:
-
-- Public information aggregation
-- Automated monitoring
-- Personalized notification
-- Email digest delivery
-
-HITnotice is designed for students and campus community members who want to follow selected official announcement sources without manually checking many separate websites.
+**Website: [hitnotice.cn](https://hitnotice.cn)**
 
 ## Features
 
-- Automated collection from official campus information sources
-- Multi-source announcement aggregation
-- Incremental notification detection
-- User-selectable weekday and weekly email digests
-- Subscription-based source selection
-- Subscription confirmation email
-- One-click unsubscribe links
-- Source health monitoring
-- Failure detection and runtime status tracking
-- Notices are deduplicated using stable hashes
-- New notices are determined by `first_seen_at`
-- Each digest type maintains independent delivery history
+- Follow selected university, office, school and department announcement sources.
+- Choose weekday or weekly email digests.
+- Receive a confirmation email on the first successful subscription.
+- Unsubscribe through the confirmation page linked in each email.
+- Deduplicate notices by source and normalized URL; use `first_seen_at` to identify newly discovered notices.
+- Track source freshness, digest outcomes and operational health.
 
-## How It Works
+The enabled source registry is maintained in [`lib/source-registry.ts`](lib/source-registry.ts).
+
+## Production architecture
+
+Production runs on **Alibaba Cloud ECS, Ubuntu 22.04**. Nginx terminates TLS with Let's Encrypt certificates. The Next.js 16 standalone website calls a signed local HITnotice API; that API accesses self-hosted PostgreSQL 17. Web and API processes are managed independently by systemd.
 
 ```mermaid
-flowchart LR
-    A[Official Campus Websites]
-    B[Crawler]
-    C[PostgreSQL Repository / Database]
-    D[Digest Generator]
-    E[Email Delivery]
-    F[Health Monitoring]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    B --> F
+flowchart TD
+    Internet --> Nginx["Nginx / TLS"]
+    Nginx --> Web["Next.js 16 standalone"]
+    Web --> API["HITnotice internal API"]
+    API --> DB["Self-hosted PostgreSQL 17"]
+    API --> Resend["Resend"]
+    Cron["Weekday cron"] --> Launcher["Controlled task launcher"]
+    Launcher --> Crawler["Primary / backup crawler"]
+    Launcher --> Digest["Digest"]
+    Launcher --> Health["Health report"]
+    Sources["Official public websites"] --> Crawler
+    Crawler --> DB
+    DB --> Digest
+    DB --> Health
+    Digest --> Resend
+    Health --> Resend
 ```
 
-The crawler checks publicly accessible official announcement pages and stores discovered announcements in PostgreSQL. The digest generator reads active subscriptions, groups newly discovered announcements by selected sources, and sends email summaries through Resend. Health monitoring records crawler status for each source.
+The web server has no direct database or email-send credential. The API handles subscriptions, unsubscribe requests, admin reads and first-subscription confirmation mail. Scheduled jobs access PostgreSQL directly through separate task identities; they do not depend on the web or API process being up.
 
-## System Architecture
+Web, API and tasks use independent immutable releases. A documentation change does not require redeploying every component. Production is no longer hosted on Vercel or backed by Supabase; references to them in migration records describe historical stages.
 
-Frontend:
+## Schedule
 
-- Next.js
-- React
+All times are **Asia/Shanghai (Beijing time)**, Monday–Friday:
 
-Backend:
+| Time | Task |
+|---|---|
+| 19:45 | Primary crawl |
+| 19:50 | Backup crawl |
+| 20:00 | Digest |
+| 20:10 | Health report |
 
-- Node.js
-- TypeScript
+On Fridays, the digest task processes both `weekday_digest` and `weekly_digest`, with separate delivery histories and idempotency keys. Each subscription selects one frequency.
 
-Database:
+## Notifications and email
 
-- PostgreSQL 17
+Resend sends first-subscription confirmations, weekday digests, weekly digests and the maintainer health report.
 
-Email:
+- Email addresses are trimmed and normalized to lowercase.
+- Subscriptions and their selected sources are saved in one PostgreSQL transaction.
+- Confirmation email is attempted after a new subscription commits. Repeating a subscription, changing sources or resubscribing does not send another confirmation.
+- Confirmation-mail failure does not roll back the subscription. It currently has no persistent delivery tracking.
+- Digests use each user's last accepted delivery window for the same digest type to catch up on missed notices. New subscribers without delivery history use the default day/week window. Empty digests are skipped.
+- Digest delivery claims, provider idempotency keys, suppression checks and an exclusive workflow lock protect against duplicate or unsafe sends.
+- Resend acceptance is not the same as inbox receipt. The historical webhook endpoint is retired; current digest records do not promise independent delivery confirmation.
 
-- Resend
+## Reliability
 
-Deployment:
+Partial source failures are retained in crawl history and reported as degraded. A failed backup attempt does not invalidate an earlier fresh success. Digest sending requires a fresh successful crawl for every configured source; missing freshness refuses that digest run without permanently pausing the workflow.
 
-- Vercel
-- Alibaba Cloud ECS
-- Alibaba Cloud ECS cron jobs for scheduled tasks
+System-level failures still trigger a global protective pause: for example, database persistence failure, crawler crashes, uncertain digest sending, or at least 25% of sources failing (7 of the current 26). Health remains allowed under a global pause and reports its reason and reference. Health failures do not pause crawler or digest. Health reporting remains subject to database/network availability and its daily reservation against duplicate sends.
 
-## Notification Logic
+See [pause policy and operational boundaries](docs/PAUSE_POLICY.md) and [crawler reliability](docs/CRAWLER_RELIABILITY.md).
 
-- The crawler runs through Alibaba Cloud ECS cron jobs.
-- Notices are deduplicated by a stable hash derived from the source and normalized URL.
-- `first_seen_at` is used to determine newly discovered notices.
-- `weekday_digest` runs from Monday to Friday at 20:00 Beijing time.
-- `weekly_digest` runs every Friday at 20:00 Beijing time.
-- `email_deliveries` stores delivery history separately for each digest type.
+## Deployment and configuration
 
-## Data Sources
+Production uses ECS, Nginx, systemd, PostgreSQL 17, cron, Resend and Let's Encrypt. Release manifests are verified before an atomic task-release switch. Never edit a live release in place, store credentials in Git, or use production jobs as failure tests.
 
-HITnotice currently covers selected public campus information sources, including:
+Configuration is separated by component:
 
-- University-level sources
-- Graduate and undergraduate related offices
-- Schools and departments
+| Component | Required configuration |
+|---|---|
+| Web | Local API base URL, internal signing secret, admin token, public site URL |
+| API | PostgreSQL connection, internal signing secret, API port, release identifier, `HITNOTICE_WRITE_MODE=open`, Resend key and sender, public site URL |
+| Crawler | Its database identity |
+| Digest | Its database identity, Resend key and sender, public site URL |
+| Health | Its read-only database identity, Resend key and sender, maintainer recipient, public site URL |
 
-The supported source list is defined in the project source registry and may be updated as official websites change.
+API readiness must check both the write gate and the actual database identity's transaction defaults. A healthy read endpoint alone does not prove that subscriptions can be saved. Keep the API and crawler/digest writer identities separate from the read-only health identity.
 
-## Deployment
+See the [PostgreSQL schema baseline](docs/POSTGRESQL_SCHEMA_BASELINE.md). Historical SQL under `supabase/` must not be replayed against the current database.
 
-Required services:
+## Local development and verification
 
-- Node.js
-- PostgreSQL 17
-- Resend
-- Vercel
-- Environment variables for database, email delivery, site URL, and monitoring
+Use Node.js 22 and install the locked dependencies:
 
-Production deployment uses Vercel for the web application. Production scheduling is handled by Alibaba Cloud ECS cron jobs: `crawl:notices` runs before digest delivery, `send:digest` runs at 20:00 on weekdays, and the health report runs after digest execution. No real credentials or production configuration values should be committed to this repository.
-
-## Environment Variables
-
-Copy `.env.example` for ECS-side development. For Vercel use `HITNOTICE_ECS_API_BASE_URL`, `HITNOTICE_INTERNAL_API_SECRET` and `ADMIN_CHECK_TOKEN`; do not provision Supabase service-role credentials for the canonical web runtime. See the Phase A plan before changing any deployed environment.
-
-```env
-# ECS server-only database
-DATABASE_URL=
-
-# Email service
-RESEND_API_KEY=
-EMAIL_FROM="HITnotice <notice@hitnotice.cn>"
-
-# Public site URL
-NEXT_PUBLIC_SITE_URL=
-
-# Admin and monitoring
-ADMIN_CHECK_TOKEN=
-HEALTH_REPORT_EMAIL=
-```
-
-Do not commit real environment variable values, API keys, service-role keys, or local production configuration files.
-
-## Local Development
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run the development server:
-
-```bash
+```sh
+npm ci
 npm run dev
 ```
 
-Run project checks:
+For subscription/admin development, run the local API separately against a disposable PostgreSQL database and configure the website's internal API URL and signing secret. Do not load production credentials into tests.
 
-```bash
+```sh
 npm run lint
+npm run typecheck
+npm test
 npm run build
+npm run test:launcher-reliability
 ```
 
-Run the crawler without writing to the database:
+[Isolated PostgreSQL testing](docs/POSTGRESQL_TESTING.md) explains the guarded database suite. The daily workflow, crawler and paused-health integration tests require a disposable test database and mocked network/email. Production crawler, digest and health commands must not be manually run for verification.
 
-```bash
-npm run crawl:notices -- --dry-run
-```
+## Documentation
 
-Generate digests without sending emails or writing delivery records:
-
-```bash
-npm run send:digest -- --dry-run --type=weekday_digest
-npm run send:digest -- --dry-run --type=weekly_digest
-```
-
-Dry-run mode does not send email and does not write `email_deliveries` records.
-
-## Version
-
-Current version:
-
-v1.0
+- [Current pause policy](docs/PAUSE_POLICY.md)
+- [Crawler reliability](docs/CRAWLER_RELIABILITY.md)
+- [PostgreSQL schema](docs/POSTGRESQL_SCHEMA_BASELINE.md)
+- [Isolated testing](docs/POSTGRESQL_TESTING.md)
+- `docs/PHASE_*` and the legacy email guide are historical migration evidence, not current deployment instructions.
 
 ## Privacy
 
-HITnotice stores the email address and subscription preferences required to send email digests. It does not collect real names, student IDs, phone numbers, campus card numbers, or unified identity authentication information.
-
-HITnotice only aggregates publicly accessible notice pages and does not access private or login-protected content.
+HITnotice stores email addresses and subscription preferences needed to deliver digests. It does not collect real names, student IDs, phone numbers, campus card numbers or unified identity credentials. It only aggregates public announcement pages and does not access private or login-protected information.
 
 ## Disclaimer
 
-HITnotice is an independent student-developed service.
-
-It is not an official platform of Harbin Institute of Technology.
-
-All official information should be verified through university websites.
+HITnotice is an independent student-developed service, **not an official platform of Harbin Institute of Technology**. All official information should be verified through university websites.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License.

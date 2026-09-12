@@ -21,7 +21,7 @@ global.fetch=async(input,init={})=>{
   if(u.origin!=='https://api.resend.com')throw Error('MAIL_NETWORK_GUARD');
   if(method==='GET'&&u.pathname.startsWith('/suppressions/'))return realFetch(input,init);
   if(!['digest','health'].includes(mode)||method!=='POST'||u.pathname!=='/emails')throw Error('SEND_NOT_ALLOWED');
-  paused();const p=JSON.parse(init.body);const key=new Headers(init.headers).get('Idempotency-Key');
+  if(mode==='digest')paused();const p=JSON.parse(init.body);const key=new Headers(init.headers).get('Idempotency-Key');
   if(!key||keys.has(key))throw Error('AUTOMATIC_SEND_RETRY_FORBIDDEN');
   if(!Array.isArray(p.to)||p.to.length!==1||typeof p.to[0]!=='string'||p.cc||p.bcc||p.from!==process.env.EMAIL_FROM)throw Error('ENVELOPE_GUARD');
   if(mode==='health'&&(p.to[0]!==process.env.HEALTH_REPORT_EMAIL||!p.subject.startsWith('HITnotice Daily Health Report｜')))throw Error('HEALTH_ENVELOPE_GUARD');

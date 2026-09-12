@@ -19,13 +19,15 @@
     "wechat:draft": "tsx scripts/create-wechat-draft.ts",
     "test:internal-api": "tsx scripts/test-internal-api.ts",
     "test:canonical": "tsx scripts/test-canonical-baseline.ts",
-    "test": "npm run test:internal-api && npm run test:canonical && npm run test:first-seen-at && npm run test:digest-groups && npm run test:health-report && npm run test:digest-reliability",
+    "test": "npm run test:internal-api && npm run test:canonical && npm run test:first-seen-at && npm run test:digest-groups && npm run test:health-report && npm run test:digest-reliability && npm run test:pause-health",
     "check:ecs-api": "tsx scripts/check-ecs-api-health.ts",
     "test:web-proxy": "tsx scripts/test-web-proxy-integration.ts",
     "test:db": "tsx scripts/test-postgresql.ts",
     "typecheck": "tsc --noEmit",
     "test:crawler-reliability": "tsx scripts/test-crawler-reliability.ts",
-    "test:launcher-reliability": "python3 scripts/test-launcher-reliability.py"
+    "test:launcher-reliability": "python3 scripts/test-launcher-reliability.py",
+    "test:pause-health": "tsx scripts/test-pause-health.ts && node scripts/test-pause-guard.cjs",
+    "test:service-isolation": "tsx scripts/test-service-isolation.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",

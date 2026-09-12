@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import {Client} from 'pg';
-import {readFileSync} from 'node:fs';
+import {mkdtempSync, readFileSync, rmSync, readdirSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {query,closePool,getPool} from '@/lib/db/pool';
 import {getDueDigestTypes} from '@/lib/digest/windows';
@@ -8,7 +11,7 @@ import {getDigestWindowForSubscription,buildDigest,claimDigestDelivery,recordDig
 import {createDigestIdempotencyKey} from '@/lib/digest/delivery';
 import {startISO} from '@/lib/digest/precision';
 import {withWorkflowLock,WORKFLOW_LOCK} from '@/lib/tasks/lock';
-import {runDaily,prepareSubscriber,assertFreshCrawl} from '@/lib/tasks/daily';
+import {runDaily,prepareSubscriber,assertFreshCrawl,DailyPreflightDeferred} from '@/lib/tasks/daily';
 import {checkSuppression} from '@/lib/tasks/suppression';
 import {sendDigestEmail,sendHealthReportEmail} from '@/lib/email/resend';
 import {generateHealthReport,applyScheduleContext} from '@/lib/health/report';
@@ -114,6 +117,21 @@ async function main(){await admin.connect();
   const late=applyScheduleContext(await generateHealthReport(new Date('2026-09-07T12:11:00Z')),new Date('2026-09-07T12:11:00Z'),'enabled');assert.equal(late.digests.weekday_digest.status,'missing');assert.equal(late.overallStatus,'failed');
   await admin.query("INSERT INTO crawl_runs(source_id,source_name,started_at,finished_at,status,error_message) VALUES('computer','Fixture','2026-09-06T01:00:00Z','2026-09-06T01:00:01Z','failed','synthetic failure')");
   const failed=applyScheduleContext(await generateHealthReport(new Date('2026-09-07T10:00:00Z')),new Date('2026-09-07T10:00:00Z'),'paused');assert.equal(failed.overallStatus,'failed');
+ });
+ await test('Confirmed suppression preflight failure refuses without delivery claims',async()=>{
+  await reset();await sub();await notice('2026-09-07T11:00:00Z');let sends=0;
+  await assert.rejects(runDaily(end,false,{checkCrawl:async()=>{},sleep:noSleep,suppression:async()=>{throw new Error('SUPPRESSION_LOOKUP_UNCERTAIN')},send:async()=>{sends++;throw new Error('UNEXPECTED_SEND')}}),DailyPreflightDeferred);
+  assert.equal(sends,0);assert.equal((await query('SELECT count(*)::int n FROM email_deliveries')).rows[0].n,0);
+  assert.equal((await query('SELECT status FROM digest_runs')).rows[0].status,'failed');
+ });
+ await test('Actual paused health CLI and POST guard send one mock report; rerun checkpoint refuses',async()=>{
+  const dir=mkdtempSync(join(tmpdir(),'hitnotice-paused-health-'));
+  try{
+   const args=['--require','./scripts/fixtures/paused-health.cjs','--require','./ops/guard.cjs','--import','tsx','scripts/generate-health-report.ts'];
+   const env={...process.env,RESEND_API_KEY:'fixture-only',EMAIL_FROM:'Fixture <fixture@example.invalid>',HEALTH_REPORT_EMAIL:'health@example.invalid',HITNOTICE_TASK_MODE:'health',HITNOTICE_HEALTH_STATE_DIR:dir,HITNOTICE_SCHEDULE_STATE:'paused',HITNOTICE_PAUSE_CONTEXT:JSON.stringify({task:'crawler',reason:'CRAWL_SYSTEMIC_SOURCE_FAILURE',time:'2026-09-11T19:50:00+08:00',log:'/var/lib/hitnotice-daily/logs/fixture.log'})};
+   const first=spawnSync(process.execPath,args,{env,encoding:'utf8',timeout:30000});assert.equal(first.status,0,first.stderr);assert.match(first.stdout,/MOCK_HEALTH_SEND_PAUSED/);assert.equal(readdirSync(dir).length,1);
+   const second=spawnSync(process.execPath,args,{env,encoding:'utf8',timeout:30000});assert.equal(second.status,1);assert.doesNotMatch(second.stdout,/MOCK_HEALTH_SEND_PAUSED/);
+  }finally{rmSync(dir,{recursive:true,force:true});}
  });
  console.log(JSON.stringify({groups,realSendRequests:0,isolatedPort:55439}));
 }

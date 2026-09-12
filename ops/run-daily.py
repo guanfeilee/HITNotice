@@ -9,7 +9,7 @@ scheduled=rest==['--scheduled']
 if not(check or dry or scheduled) or (task=='crawler' and dry):raise SystemExit('ARGUMENTS_NOT_ALLOWED')
 now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
 if scheduled:
- if (STATE/'PAUSED').exists():raise SystemExit('WORKFLOW_PAUSED')
+ if task!='health' and (STATE/'PAUSED').exists():raise SystemExit('WORKFLOW_PAUSED')
  if now.date()<datetime.date(2026,9,7) or now.weekday()>4:raise SystemExit('OUTSIDE_SCHEDULE_DATE')
  minute=now.hour*60+now.minute
  bounds={'crawler':(19*60+45,20*60),'digest':(20*60,20*60+30),'health':(20*60+10,21*60)}[task]
@@ -34,6 +34,9 @@ if dry:
 cron=subprocess.check_output(['crontab','-l']).decode();active=[l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith('#') and '/opt/hitnotice-tasks/bin/run-daily ' in l]
 schedule_state='enabled' if len(active)==4 and not (STATE/'PAUSED').exists() else 'paused'
 e.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8',NODE_ENV='production',TZ='Asia/Shanghai',TSX_DISABLE_CACHE='1',TSX_TSCONFIG_PATH=str(R/'tsconfig.json'),HITNOTICE_TASK_MODE='reader' if dry or check else task,HITNOTICE_SCHEDULE_STATE=schedule_state,HITNOTICE_HEALTH_STATE_DIR=str(STATE/'health'),HITNOTICE_EXPECTED_ROLE=role)
+if task=='health':
+ context=_policy.pause_context(STATE/'PAUSED');e['HITNOTICE_PAUSE_CONTEXT']=json.dumps(context)
+ print(json.dumps({'event':'health_workflow','scheduleState':schedule_state,'pause':context}),flush=True)
 account=pwd.getpwnam(role)
 def drop():os.setgroups([]);os.setgid(account.pw_gid);os.setuid(account.pw_uid)
 script='task-preflight.ts' if check else {'crawler':'crawl-notices.ts','digest':'send-digests.ts','health':'generate-health-report.ts'}[task]
@@ -46,7 +49,9 @@ fd=os.open(log,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
 with os.fdopen(fd,'w') as f:
  p=subprocess.Popen(cmd,cwd=R,env=e,stdout=f,stderr=subprocess.STDOUT,preexec_fn=drop,start_new_session=True)
  def stop(signum,frame):
-  pause=STATE/'PAUSED';pause.write_text(json.dumps({'task':task,'reason':'interrupted_review_before_resume','log':str(log)}));pause.chmod(0o644)
+  pause=STATE/'PAUSED'
+  if _policy.should_pause(task, 1) and not pause.exists():
+   pause.write_text(json.dumps({'task':task,'reason':'interrupted_review_before_resume','log':str(log),'time':now.isoformat()}));pause.chmod(0o644)
   if p.poll() is None:os.killpg(p.pid,signal.SIGTERM)
  signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
  try:code=p.wait(timeout=2400)

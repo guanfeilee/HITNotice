@@ -11,6 +11,16 @@ import { checkSuppression } from "./suppression";
 import { crawlSources } from "@/lib/crawler/sources";
 import type { DigestType, DigestSubscription, Digest } from "@/lib/digest/types";
 
+// These failures occur before a delivery claim/request for the affected user.
+// Earlier accepted deliveries remain recorded; refusing this run needs no global pause.
+export class DailyPreflightDeferred extends Error {
+  constructor(reason: string) { super(reason); this.name = "DailyPreflightDeferred"; }
+}
+const deferrablePreflightErrors = new Set([
+  "SUPPRESSION_LOOKUP_UNCERTAIN", "SUPPRESSION_INVALID_RESPONSE",
+  "SUPPRESSION_LOOKUP_UNCONFIRMED", "SUBSCRIPTION_CHANGED_BEFORE_SEND",
+]);
+
 export async function assertFreshCrawl(now: Date) {
   const fresh = await freshSourceIds(now);
   const missing = crawlSources.filter(s => !fresh.has(s.id)).map(s => s.id);
@@ -81,6 +91,7 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
     } catch(e) {
       stats.failed++;
       if(runId)await finishDigestRun({runId,status:stats.accepted?"partial_success":"failed",stats,errorMessage:"Daily workflow stopped; inspect restricted evidence before retry"});
+      if (e instanceof Error && deferrablePreflightErrors.has(e.message)) throw new DailyPreflightDeferred(e.message);
       throw e;
     }
   }

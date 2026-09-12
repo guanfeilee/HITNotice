@@ -1,5 +1,5 @@
 import { closePool } from "@/lib/db/pool";
-import { generateHealthReport, applyScheduleContext } from "@/lib/health/report";
+import { generateHealthReport, applyScheduleContext, parsePauseContext } from "@/lib/health/report";
 import { sendHealthReportEmail } from "@/lib/email/resend";
 import { checkSuppression } from "@/lib/tasks/suppression";
 import { withWorkflowLock } from "@/lib/tasks/lock";
@@ -9,8 +9,9 @@ async function main(){
  const dry=process.argv.includes("--dry-run");
  if(process.argv.slice(2).some(a=>a!=="--dry-run"))throw new Error("HEALTH_ARGUMENTS_REJECTED");
  const now=new Date();
- const report=applyScheduleContext(await generateHealthReport(now),now,process.env.HITNOTICE_SCHEDULE_STATE ?? "paused");
- if(dry){console.log(JSON.stringify({event:"health_preview",periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.overallStatus,sources:report.totalSources,digests:report.digests}));return;}
+ const report=applyScheduleContext(await generateHealthReport(now),now,process.env.HITNOTICE_SCHEDULE_STATE ?? "paused",parsePauseContext(process.env.HITNOTICE_PAUSE_CONTEXT));
+ console.log(JSON.stringify({event:"health_workflow",...report.workflow}));
+ if(dry){console.log(JSON.stringify({event:"health_preview",periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.overallStatus,sources:report.totalSources,digests:report.digests,workflow:report.workflow}));return;}
  const to=process.env.HEALTH_REPORT_EMAIL?.trim();
  if(!to||!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(to))throw new Error("HEALTH_SINGLE_RECIPIENT_REQUIRED");
  if(await checkSuppression(to))throw new Error("HEALTH_RECIPIENT_SUPPRESSED");

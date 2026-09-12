@@ -1,6 +1,6 @@
 # PostgreSQL Current Production Schema Baseline
 
-Phase B source only; no production database has been installed or changed. The authoritative target DDL is `database/schema/0001_current_baseline.sql`. It consolidates the previously audited production catalog, rather than replaying historical migrations or their data transformations. Historical `supabase/` SQL remains reference material and must not be run against this target.
+The current production database is self-hosted PostgreSQL 17. The authoritative baseline DDL is `database/schema/0001_current_baseline.sql`. It consolidates the previously audited production catalog, rather than replaying historical migrations or their data transformations. Historical `supabase/` SQL remains reference material and must not be run against this target.
 
 ## Objects
 
@@ -64,7 +64,7 @@ No anon/authenticated/service_role or PUBLIC table grants. Future migrations mus
 
 ## Runtime model
 
-`DATABASE_URL` is server-only, not prefixed NEXT_PUBLIC, and belongs on ECS API/CLI processes, not Vercel. Example shape (not a real credential): `postgresql://hitnotice_runtime:REDACTED@127.0.0.1:5432/hitnotice`.
+`DATABASE_URL` is server-only, not prefixed NEXT_PUBLIC, and belongs on ECS API/CLI processes, not the Next.js web process. Example shape (not a real credential): `postgresql://hitnotice_runtime:REDACTED@127.0.0.1:5432/hitnotice`.
 
 Lazy pool: max 5, idle timeout 30 seconds, connection timeout 5 seconds, statement timeout 15 seconds, lock timeout 5 seconds, timezone UTC. Each transaction uses one PoolClient and rolls back/releases on failure; there is no automatic infinite retry. Error mapping exposes only operation and safe code. Idle connection error logs omit details. Four concurrent processes consume at most 20 application connections; reserve ~10 out of max_connections ~30 for maintenance and PostgreSQL administration. Do not overlap duplicate cron processes or run extra sender/retry workers without budgeting their pools.
 
@@ -74,4 +74,4 @@ The timestamptz parser returns UTC ISO strings preserving PostgreSQL microsecond
 
 ## Migration compatibility (future only)
 
-Preserve UUIDs, every timestamp, JSONB objects/NULLs, idempotency_key, resend_email_id, unsubscribe_token, delivery states and all digest metadata. No import helper generates replacements or rehashes existing rows. Export/import must use explicit column lists and data-only mappings to these seven business tables. Do not import Supabase ownership, ACLs, RLS or extension objects. Existing explicit updated_at values must survive data load; do not replay history as UPDATEs that invoke timestamps. No real dump or restore was performed. Constraint validation, row counts, checksum comparisons, token/key parity, orphan checks and non-millisecond window inventory remain mandatory restore rehearsal gates.
+Preserve UUIDs, every timestamp, JSONB objects/NULLs, idempotency_key, resend_email_id, unsubscribe_token, delivery states and all digest metadata. No import helper generates replacements or rehashes existing rows. Export/import must use explicit column lists and data-only mappings to these seven business tables. Do not import Supabase ownership, ACLs, RLS or extension objects. Existing explicit updated_at values must survive data load; do not replay history as UPDATEs that invoke timestamps. The original Phase B baseline work did not perform a production dump or restore; later migration evidence is retained in the Phase D/E records. Constraint validation, row counts, checksum comparisons, token/key parity, orphan checks and non-millisecond window inventory remain mandatory restore rehearsal gates.
