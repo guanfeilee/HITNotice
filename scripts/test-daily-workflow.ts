@@ -11,8 +11,9 @@ import {getDigestWindowForSubscription,buildDigest,claimDigestDelivery,recordDig
 import {createDigestIdempotencyKey} from '@/lib/digest/delivery';
 import {startISO} from '@/lib/digest/precision';
 import {withWorkflowLock,WORKFLOW_LOCK} from '@/lib/tasks/lock';
-import {runDaily,prepareSubscriber,assertFreshCrawl,DailyPreflightDeferred} from '@/lib/tasks/daily';
-import {checkSuppression,SuppressionLookupError} from '@/lib/tasks/suppression';
+import {runDaily,prepareSubscriber,assertFreshCrawl} from '@/lib/tasks/daily';
+import {checkSuppression} from '@/lib/tasks/suppression';
+import {hashSuppressionEmail,isLocallySuppressed,parseLocalSuppressionHashes} from '@/lib/tasks/local-suppression';
 import {sendDigestEmail,sendHealthReportEmail} from '@/lib/email/resend';
 import {generateHealthReport,applyScheduleContext} from '@/lib/health/report';
 import {crawlSources} from '@/lib/crawler/sources';
@@ -62,10 +63,19 @@ async function main(){await admin.connect();
   for(const status of [401,429,500,404])await assert.rejects(checkSuppression('synthetic@example.invalid',async()=>new Response('{}',{status})));
   await assert.rejects(checkSuppression('synthetic@example.invalid',async()=>{throw Error('timeout')}));
  });
+	 await test('Local suppression snapshot is normalized, strict, and requires no network',async()=>{
+	  const email='Known.Bounce@Example.invalid';const hash=hashSuppressionEmail(email);
+	  process.env.HITNOTICE_SUPPRESSION_SHA256_JSON=JSON.stringify([hash]);
+	  assert.equal(isLocallySuppressed('  known.bounce@example.invalid '),true);
+	  assert.equal(isLocallySuppressed('other@example.invalid'),false);
+	  assert.deepEqual([...parseLocalSuppressionHashes()], [hash]);
+	  process.env.HITNOTICE_SUPPRESSION_SHA256_JSON='["invalid"]';assert.throws(()=>isLocallySuppressed(email),/LOCAL_SUPPRESSION_SNAPSHOT_INVALID/);
+	  delete process.env.HITNOTICE_SUPPRESSION_SHA256_JSON;assert.throws(()=>isLocallySuppressed(email),/LOCAL_SUPPRESSION_SNAPSHOT_MISSING/);
+	 });
  await test('Unsubscribe, bounce, complaint, empty block before claim',async()=>{
   await reset();const inactive=await sub('unsubscribed');assert.equal((await prepareSubscriber(inactive,'weekday_digest',end,none)).kind,'inactive');
   const s=await sub();assert.equal((await prepareSubscriber(s,'weekday_digest',end,async()=>true)).kind,'blocked');assert.equal((await prepareSubscriber(s,'weekday_digest',end,none)).kind,'empty');
-  for(const status of ['bounced','complained']){
+	  for(const status of ['suppressed','bounced','complained']){
    await admin.query("INSERT INTO email_deliveries(subscription_id,digest_type,period_start,period_end,status,idempotency_key) VALUES($1,'weekday_digest','2026-09-01','2026-09-02',$2,gen_random_uuid()::text)",[s.id,status]);assert.equal((await prepareSubscriber(s,'weekday_digest',end,none)).kind,'blocked');await admin.query('DELETE FROM email_deliveries');
   }
  });
@@ -118,11 +128,13 @@ async function main(){await admin.connect();
   await admin.query("INSERT INTO crawl_runs(source_id,source_name,started_at,finished_at,status,error_message) VALUES('computer','Fixture','2026-09-06T01:00:00Z','2026-09-06T01:00:01Z','failed','synthetic failure')");
   const failed=applyScheduleContext(await generateHealthReport(new Date('2026-09-07T10:00:00Z')),new Date('2026-09-07T10:00:00Z'),'paused');assert.equal(failed.overallStatus,'failed');
  });
- await test('Confirmed suppression preflight failure refuses without delivery claims',async()=>{
-  await reset();await sub();await notice('2026-09-07T11:00:00Z');let sends=0;
-  await assert.rejects(runDaily(end,false,{checkCrawl:async()=>{},sleep:noSleep,suppression:async()=>{throw new SuppressionLookupError('SUPPRESSION_LOOKUP_UNCERTAIN')},send:async()=>{sends++;throw new Error('UNEXPECTED_SEND')}}),DailyPreflightDeferred);
-  assert.equal(sends,0);assert.equal((await query('SELECT count(*)::int n FROM email_deliveries')).rows[0].n,0);
-  assert.equal((await query('SELECT status FROM digest_runs')).rows[0].status,'failed');
+	 await test('Digest ignores remote suppression availability and blocks the local snapshot before claim',async()=>{
+	  await reset();const blocked=await sub();const allowed=await sub();await notice('2026-09-07T11:00:00Z');let sends=0;
+	  process.env.HITNOTICE_SUPPRESSION_SHA256_JSON=JSON.stringify([hashSuppressionEmail(blocked.email)]);
+	  await runDaily(end,false,{checkCrawl:async()=>{},sleep:noSleep,send:async(subscription)=>{assert.equal(subscription.id,allowed.id);sends++;return {id:'synthetic-local-snapshot',attempt:1,durationMs:1,httpStatus:200,responseSummary:'mock'}}});
+	  assert.equal(sends,1);assert.equal((await query('SELECT count(*)::int n FROM email_deliveries')).rows[0].n,1);
+	  const run=(await query('SELECT status,blocked,recipients FROM digest_runs')).rows[0];assert.deepEqual(run,{status:'success',blocked:1,recipients:1});
+	  delete process.env.HITNOTICE_SUPPRESSION_SHA256_JSON;
  });
  await test('Actual paused health CLI and POST guard send one mock report; rerun checkpoint refuses',async()=>{
   const dir=mkdtempSync(join(tmpdir(),'hitnotice-paused-health-'));

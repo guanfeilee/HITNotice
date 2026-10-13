@@ -7,7 +7,7 @@ import { startISO, endISO } from "@/lib/digest/precision";
 import { claimScheduledDigestRun, finishDigestRun, createEmptyDigestRunStats } from "@/lib/digest/runs";
 import { executeDigestDelivery } from "@/lib/digest/send";
 import { sendDigestEmail } from "@/lib/email/resend";
-import { checkSuppression, SuppressionLookupError } from "./suppression";
+import { isLocallySuppressed } from "./local-suppression";
 import { crawlSources } from "@/lib/crawler/sources";
 import type { DigestType, DigestSubscription, Digest } from "@/lib/digest/types";
 
@@ -27,7 +27,9 @@ export async function assertNoUnresolved(sub: string) {
   const rows = (await query("SELECT id FROM email_deliveries WHERE subscription_id=$1 AND status IN ('pending','failed') LIMIT 1", [sub])).rows;
   if (rows.length) throw new Error("UNRESOLVED_DELIVERY_REQUIRES_REVIEW");
 }
-export async function prepareSubscriber(s: DigestSubscription, type: DigestType, end: Date, suppression = checkSuppression) {
+type SuppressionCheck = (email: string) => boolean | Promise<boolean>;
+
+export async function prepareSubscriber(s: DigestSubscription, type: DigestType, end: Date, suppression: SuppressionCheck = isLocallySuppressed) {
   const current = await service.getSubscriptionForRetry(s.id);
   if (!current || current.status !== "active" || current.frequency !== type || current.email !== s.email) return { kind: "inactive" as const };
   if (await service.getLatestPermanentDeliveryBlock(s.id) || await suppression(current.email)) return { kind: "blocked" as const };
@@ -47,9 +49,9 @@ export const defaultDailySend = async (s: DigestSubscription, d: Digest, deliver
   requestOverrides:{maxAttempts:1}
 });
 export async function runDaily(now: Date, dryRun: boolean, options: {
-  suppression?: typeof checkSuppression; send?: typeof defaultDailySend; sleep?: (n:number)=>Promise<void>; checkCrawl?: (n:Date)=>Promise<void>;
+  suppression?: SuppressionCheck; send?: typeof defaultDailySend; sleep?: (n:number)=>Promise<void>; checkCrawl?: (n:Date)=>Promise<void>;
 } = {}) {
-  const suppression=options.suppression ?? checkSuppression, send=options.send ?? defaultDailySend;
+  const suppression=options.suppression ?? isLocallySuppressed, send=options.send ?? defaultDailySend;
   const sleep=options.sleep ?? (ms=>new Promise(r=>setTimeout(r,ms)));
   if (!dryRun) await (options.checkCrawl ?? assertFreshCrawl)(now);
   const summaries=[];
@@ -66,13 +68,7 @@ export async function runDaily(now: Date, dryRun: boolean, options: {
       const subs=await service.getActiveDigestSubscriptions(type);stats.users=subs.length;
       for(const s of subs){
         await sleep(dryRun?650:3000);
-        const p=await prepareSubscriber(s,type,end,async email=>{
-          try { return await suppression(email); }
-          catch(e) {
-            if(e instanceof SuppressionLookupError) throw new SafeTypePreflightFailure(e.message);
-            throw e;
-          }
-        });
+        const p=await prepareSubscriber(s,type,end,suppression);
         if(p.kind!=="ready"){
           if(p.kind==="blocked")stats.blocked++;else stats.skipped++;
           console.log(JSON.stringify({event:"daily_preflight",subscription:s.id,type,action:p.kind,start:p.kind==="empty"?startISO(p.window):undefined,end:end.toISOString()}));continue;

@@ -19,6 +19,8 @@ class LauncherTests(unittest.TestCase):
             if task!='crawler':env.update(RESEND_API_KEY='fixture',EMAIL_FROM='fixture@example.invalid',NEXT_PUBLIC_SITE_URL='https://example.invalid')
             if task=='health':env['HEALTH_REPORT_EMAIL']='fixture@example.invalid'
             config=cfg/(task+'.json');config.write_text(json.dumps(env));config.chmod(0o600)
+            if task=='digest':
+                snapshot=cfg/'suppressions.json';snapshot.write_text(json.dumps({'version':1,'generated_at':'2026-10-13T13:30:00Z','email_sha256':[]}));snapshot.chmod(0o600)
             class Clock(datetime.datetime):
                 @classmethod
                 def now(cls,tz=None):return cls(2026,9,11,19,50,tzinfo=tz) if task=='crawler' else cls(2026,9,11,20,10,tzinfo=tz)
@@ -32,7 +34,7 @@ class LauncherTests(unittest.TestCase):
             source=script.read_text().replace('cfg.stat().st_uid!=0','cfg.stat().st_uid!=__import__("os").getuid()');script.write_text(source)
             with patch.object(sys,'argv',[str(script),task,'--scheduled']),patch('os.getuid',return_value=0),patch('pwd.getpwnam') as account,patch('datetime.datetime',Clock),patch('subprocess.check_output',return_value=b''),patch('subprocess.Popen',Process),patch('signal.signal',side_effect=lambda sig,fn:handlers.update({sig:fn})),patch('os.killpg'):
                 # On non-root local machines the config check above must use fixture ownership.
-                script.write_text(script.read_text().replace('cfg.stat().st_uid!=__import__("os").getuid()', 'False'))
+                script.write_text(script.read_text().replace('cfg.stat().st_uid!=__import__("os").getuid()', 'False').replace('snapshot.stat().st_uid!=0','False'))
                 account.return_value.pw_gid=1;account.return_value.pw_uid=1
                 with self.assertRaises(SystemExit) as result:runpy.run_path(str(script),run_name='__main__')
                 self.assertEqual(result.exception.code,"WORKFLOW_PAUSED" if paused and task!="health" else code)

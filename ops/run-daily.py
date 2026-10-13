@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import os,sys,pathlib,json,hashlib,subprocess,pwd,datetime,uuid,signal,urllib.parse
+import os,sys,pathlib,json,hashlib,subprocess,pwd,datetime,uuid,signal,urllib.parse,re
 BASE=pathlib.Path('/opt/hitnotice-tasks'); R=pathlib.Path(__file__).resolve().parent.parent
 STATE=pathlib.Path('/var/lib/hitnotice-daily');args=sys.argv[1:]
 if os.getuid()!=0:raise SystemExit('ROOT_CONTROL_REQUIRED')
@@ -26,6 +26,14 @@ cfg=pathlib.Path('/etc/hitnotice/daily')/(task+'.json')
 if cfg.stat().st_uid!=0 or cfg.stat().st_mode&0o077:raise SystemExit('CONFIG_PERMISSIONS')
 e=json.loads(cfg.read_text());expected={'DATABASE_URL'} if task=='crawler' else {'DATABASE_URL','RESEND_API_KEY','EMAIL_FROM','NEXT_PUBLIC_SITE_URL'}|({'HEALTH_REPORT_EMAIL'} if task=='health' else set())
 if set(e)!=expected or any(not isinstance(v,str) or not v for v in e.values()):raise SystemExit('CONFIG_KEYS')
+if task=='digest':
+ snapshot=pathlib.Path('/etc/hitnotice/daily/suppressions.json')
+ if snapshot.stat().st_uid!=0 or snapshot.stat().st_mode&0o077:raise SystemExit('SUPPRESSION_SNAPSHOT_PERMISSIONS')
+ local=json.loads(snapshot.read_text())
+ if set(local)!={'version','generated_at','email_sha256'} or local['version']!=1 or not isinstance(local['generated_at'],str) or not isinstance(local['email_sha256'],list):raise SystemExit('SUPPRESSION_SNAPSHOT_FORMAT')
+ hashes=local['email_sha256']
+ if len(set(hashes))!=len(hashes) or any(not isinstance(v,str) or not re.fullmatch(r'[a-f0-9]{64}',v) for v in hashes):raise SystemExit('SUPPRESSION_SNAPSHOT_HASHES')
+ e['HITNOTICE_SUPPRESSION_SHA256_JSON']=json.dumps(hashes,separators=(',',':'))
 u=urllib.parse.urlparse(e['DATABASE_URL']);q=urllib.parse.parse_qs(u.query)
 if u.path!='/hitnotice' or q.get('host')!=['/var/run/postgresql'] or q.get('user')!=[role] or u.hostname or u.port or u.password:raise SystemExit('DATABASE_TARGET')
 # Dry runs use the existing SELECT-only identity, never the writer identity.
