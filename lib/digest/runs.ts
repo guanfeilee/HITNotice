@@ -16,6 +16,7 @@ export type DigestRunStats = {
   notices: number;
   accepted: number;
   deliverySkipped: number;
+  sourceUnavailable?: number;
 };
 
 export type DigestRunRecord = {
@@ -46,13 +47,14 @@ export function createEmptyDigestRunStats(): DigestRunStats {
     notices: 0,
     accepted: 0,
     deliverySkipped: 0,
+    sourceUnavailable: 0,
   };
 }
 
 export function getCompletedDigestRunStatus(
   stats: DigestRunStats,
 ): CompletedDigestRunStatus {
-  if (stats.failed === 0) return "success";
+  if (stats.failed === 0 && !stats.sourceUnavailable) return "success";
   if (
     stats.accepted > 0 ||
     stats.skipped > 0 ||

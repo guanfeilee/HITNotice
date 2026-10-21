@@ -64,6 +64,7 @@ export function renderDigestEmail(digest: Digest, siteUrl: string, unsubscribeTo
   const unsubscribeUrl = `${siteUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const subscribedSourceNames = digest.sources.map((source) => source.name).join("、");
   const digestLabel = getDigestLabel(digest);
+  const unavailableSourceNames = (digest.unavailableSources ?? []).map((source) => source.name).join("、");
 
   const contentHtml = `
     <p style="margin: 0; color: #222222; font-size: 16px;">日期：${escapeHtml(digest.date)}</p>
@@ -72,6 +73,7 @@ export function renderDigestEmail(digest: Digest, siteUrl: string, unsubscribeTo
     <div style="border-left: 4px solid #00008b; padding: 10px 14px; background: #faf8f3; color: #666666; font-size: 14px; word-break: break-word;">
       订阅信息源：${escapeHtml(subscribedSourceNames || "未选择")}
     </div>
+    ${unavailableSourceNames ? `<div style="margin-top: 12px; border-left: 4px solid #b45309; padding: 10px 14px; background: #fff7ed; color: #7c2d12; font-size: 14px; word-break: break-word;">以下信息源本轮抓取失败，未纳入本次摘要：${escapeHtml(unavailableSourceNames)}。其他已成功抓取的信息源仍正常汇总。</div>` : ""}
     ${renderGroups(digest)}
   `;
 

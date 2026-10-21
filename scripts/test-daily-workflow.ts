@@ -101,6 +101,22 @@ async function main(){await admin.connect();
   const d=(await query('SELECT status,resend_response FROM email_deliveries')).rows[0];assert.equal(d.status,'accepted');assert.equal(d.resend_response.window_end_inclusive,true);
   assert.equal((await query('SELECT status FROM digest_runs')).rows[0].status,'success');
  });
+ await test('One source failure sends healthy-source digests, blocks unavailable-only subscriptions, and records partial success',async()=>{
+  await reset();const healthy=await sub();const unavailable=await sub();const mixed=await sub();
+  await admin.query("UPDATE subscription_sources SET source_id='today' WHERE subscription_id=$1",[unavailable.id]);
+  await admin.query("INSERT INTO subscription_sources(subscription_id,source_id) VALUES($1,'today')",[mixed.id]);
+  await notice('2026-09-07T11:00:00Z','computer');
+  const freshSourceIds=new Set(crawlSources.filter(source=>source.id!=='today').map(source=>source.id));
+  const sent:string[]=[];
+  await withWorkflowLock(()=>runDaily(end,false,{suppression:none,sleep:noSleep,checkCrawl:async()=>({status:'degraded' as const,freshSourceIds,missingSourceIds:['today']}),send:async(subscription,digest)=>{
+    sent.push(subscription.id);if(subscription.id===mixed.id)assert.deepEqual(digest.unavailableSources?.map(source=>source.id),['today']);
+    return {id:'synthetic-degraded-'+subscription.id,attempt:1,durationMs:1,httpStatus:200,responseSummary:'mock'};
+  }}));
+  assert.deepEqual(new Set(sent),new Set([healthy.id,mixed.id]));
+  assert.equal((await query('SELECT count(*)::int n FROM email_deliveries')).rows[0].n,2);
+  const run=(await query('SELECT status,recipients,blocked,failed,metadata FROM digest_runs')).rows[0];
+  assert.equal(run.status,'partial_success');assert.equal(run.recipients,2);assert.equal(run.blocked,1);assert.equal(run.failed,0);assert.equal(run.metadata.source_unavailable_subscriptions,2);
+ });
  await test('Timeout stops remaining subscriptions; later cutoff cannot blind retry',async()=>{
   await reset();await sub();await sub();await notice('2026-09-07T11:00:00Z');let sends=0;
   const opts={suppression:none,sleep:noSleep,checkCrawl:async()=>{},send:async()=>{sends++;throw new ResendRequestError('mock-timeout',{attempt:1,durationMs:20,httpStatus:null})}};

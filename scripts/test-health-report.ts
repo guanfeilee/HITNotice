@@ -280,7 +280,8 @@ staleCrawler[0] = {
 };
 const staleReport = reportFor(fridayNow, allSkipped, weeklySent, staleCrawler);
 assert.equal(staleReport.sources[0].status, "stale");
-assert.equal(staleReport.overallStatus, "failed");
+assert.equal(staleReport.overallStatus, "degraded");
+assert.equal(staleReport.digestReadiness, "READY");
 
 const failedCrawler = crawlerHealth(fridayNow);
 failedCrawler[0] = {
@@ -293,8 +294,8 @@ assert.equal(recoveredDataReport.overallStatus, "degraded");
 assert.equal(recoveredDataReport.digestReadiness, "READY");
 assert.equal(recoveredDataReport.sources[0].lastError, "HTTP 500");
 failedCrawler[0].lastSuccessAt = "2026-07-23T11:50:00.000Z";
-assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).overallStatus, "failed");
-assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).digestReadiness, "NOT_READY");
+assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).overallStatus, "degraded");
+assert.equal(reportFor(fridayNow, allSkipped, weeklySent, failedCrawler).digestReadiness, "DEGRADED");
 
 const partialRun = digestHealth({
   digestType: "weekday_digest",

@@ -122,10 +122,17 @@ export async function buildDigest(
   subscriptionId: string,
   digestType: DigestType,
   window: DigestWindow,
+  availableSourceIds?: ReadonlySet<string>,
 ): Promise<Digest> {
   const subscribedSources = await getSubscriptionSources(subscriptionId);
+  const availableSources = availableSourceIds
+    ? subscribedSources.filter((source) => availableSourceIds.has(source.id))
+    : subscribedSources;
+  const unavailableSources = availableSourceIds
+    ? subscribedSources.filter((source) => !availableSourceIds.has(source.id))
+    : [];
   const notices = await getNoticesForSources(
-    subscribedSources.map((source) => source.id),
+    availableSources.map((source) => source.id),
     window,
   );
 
@@ -136,7 +143,8 @@ export async function buildDigest(
     periodEnd: endISO(window),
     total: notices.length,
     sources: subscribedSources,
-    groups: groupNotices(notices, subscribedSources),
+    unavailableSources,
+    groups: groupNotices(notices, availableSources),
   };
 }
 

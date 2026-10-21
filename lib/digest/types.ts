@@ -45,5 +45,6 @@ export type Digest = {
   periodEnd: string;
   total: number;
   sources: DigestSource[];
+  unavailableSources?: DigestSource[];
   groups: DigestGroup[];
 };

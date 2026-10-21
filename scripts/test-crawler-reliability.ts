@@ -31,7 +31,16 @@ await test('2 primary success + backup failure: degraded, failed row retained, R
  assert.equal(report.overallStatus,'degraded');assert.equal(report.digestReadiness,'READY');assert.equal(report.freshSuccessSources,26);assert.equal(report.latestAttemptFailedSources,1);assert.match(renderHealthReportText(report),/synthetic fetch failed/);assert.match(renderHealthReportEmail(report, "https://example.invalid"),/Last success/);
 });
 await test('3 failed primary repaired by backup: READY',async()=>{assert.equal((await round('2026-09-10T11:45:01Z',[2])).status,'degraded');await round('2026-09-10T11:50:01Z');await assertFreshCrawl(end);});
-await test('4 both attempts fail one source: NOT READY, typed nonfatal readiness',async()=>{await round('2026-09-10T11:45:01Z',[2]);await round('2026-09-10T11:50:01Z',[2]);await assert.rejects(assertFreshCrawl(end),FreshCrawlNotReady);});
+await test('4 both attempts fail one source: DEGRADED but digest-safe',async()=>{
+ await round('2026-09-10T11:45:01Z',[2]);await round('2026-09-10T11:50:01Z',[2]);
+ const readiness=await assertFreshCrawl(end);assert.equal(readiness.status,'degraded');assert.deepEqual(readiness.missingSourceIds,[crawlSources[2].id]);
+});
+await test('4a multiple independent failures below threshold remain degraded; threshold stays fail-closed',async()=>{
+ await round('2026-09-10T11:45:01Z',[0,1,2,3,4,5]);
+ assert.equal((await assertFreshCrawl(end)).status,'degraded');
+ await reset();await round('2026-09-10T11:45:01Z',[0,1,2,3,4,5,6]);
+ await assert.rejects(assertFreshCrawl(end),FreshCrawlNotReady);
+});
 await test('5 database crawl-record write denied: actual crawler exits nonzero',async()=>{
  await admin.query('REVOKE INSERT ON crawl_runs FROM hitnotice_runtime');try{const p=child();assert.notEqual(p.status,0);assert.match(p.stdout+p.stderr,/Crawl record persistence failed/);}finally{await admin.query('GRANT INSERT ON crawl_runs TO hitnotice_runtime');}
 });
@@ -50,7 +59,7 @@ await test('4b actual digest readiness refusal exits 10 without claims or sendin
 });
 await test('6 crawler process crash: actual SIGKILL',async()=>{const p=child('none',true);assert.equal(p.signal,'SIGKILL');});
 await test('7 latest failure does not overwrite earlier success; no 500-row history cap',async()=>{await round('2026-09-10T11:45:01Z');await round('2026-09-10T11:50:01Z',[2]);await admin.query("INSERT INTO crawl_runs(source_id,source_name,started_at,finished_at,status,found_count,new_count) SELECT 'fixture','fixture','2026-09-10 11:55Z','2026-09-10 11:55Z','failed',0,0 FROM generate_series(1,600)");await assertFreshCrawl(end);assert.ok((await getCrawlerHealth())[2].lastSuccessAt);});
-await test('8 old success + today failure: NOT READY',async()=>{await round('2026-09-09T11:45:01Z');await round('2026-09-10T11:50:01Z',[2]);await assert.rejects(assertFreshCrawl(end),FreshCrawlNotReady);});
+await test('8 old success + today failure: degraded coverage excludes stale source',async()=>{await round('2026-09-09T11:45:01Z');await round('2026-09-10T11:50:01Z',[2]);const readiness=await assertFreshCrawl(end);assert.equal(readiness.status,'degraded');assert.equal(readiness.freshSourceIds.has(crawlSources[2].id),false);});
 await test('future success rejected, exact lower bound included',async()=>{await round('2026-09-10T11:45:00Z');assert.equal((await freshSourceIds(end,end)).size,26);await reset();await round('2026-09-10T12:01:00Z');assert.equal((await freshSourceIds(end,end)).size,0);});
 await test('actual partial crawler exits zero and retains failed record',async()=>{const p=child('one');assert.equal(p.status,0,p.stderr);assert.match(p.stdout,/"status":"degraded"/);const rows=(await query("SELECT status,error_message FROM crawl_runs WHERE source_id='undergraduate'")).rows;assert.equal(rows.length,1);assert.equal(rows[0].status,'failed');assert.match(rows[0].error_message,/synthetic fetch failed/);});
 await test('systemic source failures fatal; threshold 7 of 26',async()=>{assert.equal(classifyCrawlOutcome(crawlSources.map((_,i)=>result(i,i<6))).status,'degraded');assert.equal(classifyCrawlOutcome(crawlSources.map((_,i)=>result(i,i<7))).status,'fatal');const p=child('all');assert.equal(p.status,1);assert.match(p.stderr,/CRAWL_SYSTEMIC_SOURCE_FAILURE/);});

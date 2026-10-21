@@ -107,6 +107,7 @@ export async function finishDigestRun(p: {
         notices: s.notices,
         accepted: s.accepted,
         delivery_skipped: s.deliverySkipped,
+        source_unavailable_subscriptions: s.sourceUnavailable ?? 0,
         dry_run: false,
         window_strategy: "scheduled_default_with_per_subscription_catchup",
       },

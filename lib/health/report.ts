@@ -86,7 +86,7 @@ export type HealthReport = {
   sources: HealthSourceStatus[];
   digests: Record<DigestType, HealthDigestStatus>;
   overallStatus: "healthy" | "degraded" | "failed";
-  digestReadiness?: "READY" | "NOT_READY";
+  digestReadiness?: "READY" | "DEGRADED" | "NOT_READY";
   freshSuccessSources?: number;
   latestAttemptFailedSources?: number;
 };
@@ -400,13 +400,14 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
   const digestStatuses = Object.values(input.digests);
   const freshSuccessSources = sources.filter(source => source.digestReady).length;
   const latestAttemptFailedSources = sources.filter(source => source.lastRunSucceeded === false).length;
+  const unavailableSources = failedSources + staleSources + noDataSources;
+  const systemicFailureCount = Math.ceil(sources.length * 0.25);
   const overallStatus =
-    failedSources > 0 ||
-    staleSources > 0 ||
-    noDataSources > 0 ||
+    !sources.length ||
+    unavailableSources >= systemicFailureCount ||
     digestStatuses.some((digest) => ["failed", "missing"].includes(digest.status))
       ? "failed"
-      : sources.some(source => source.status === "degraded") || digestStatuses.some((digest) => ["partial_success", "running"].includes(digest.status))
+      : unavailableSources > 0 || sources.some(source => source.status === "degraded") || digestStatuses.some((digest) => ["partial_success", "running"].includes(digest.status))
         ? "degraded"
         : "healthy";
 
@@ -426,7 +427,12 @@ export function buildHealthReport(input: HealthReportInput): HealthReport {
     overallStatus,
     freshSuccessSources,
     latestAttemptFailedSources,
-    digestReadiness: freshSuccessSources === sources.length && sources.length > 0 ? "READY" : "NOT_READY"
+    digestReadiness:
+      freshSuccessSources === sources.length && sources.length > 0
+        ? "READY"
+        : freshSuccessSources > 0 && unavailableSources < systemicFailureCount
+          ? "DEGRADED"
+          : "NOT_READY"
   };
 }
 
